@@ -1,16 +1,16 @@
-import requests
-import pandas as pd
 import numpy as np
+import pandas as pd
 import networkx as nx
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 from datetime import datetime, timedelta
+import requests
 
 CURRENCIES = ["USD", "EUR", "JPY", "KRW", "GBP", "SGD", "HKD", "AUD"]
 DT = 1.0
 
 # ---------------------------------------
-# FX RATES API — historcal data
+# FX RATES API — historical data (keyless)
 # ---------------------------------------
 def fetch_rates_history(currencies=CURRENCIES, base="USD",
                         start_date=None, end_date=None):
@@ -18,7 +18,6 @@ def fetch_rates_history(currencies=CURRENCIES, base="USD",
     Fetch historical FX rates from exchangerate.host between start_date and end_date (inclusive).
     Returns a DataFrame with index = dates, columns = currencies (relative to base).
     """
-    # If dates not provided, default: last 30 days
     if end_date is None:
         end_date = datetime.utcnow().date()
     if start_date is None:
@@ -37,25 +36,21 @@ def fetch_rates_history(currencies=CURRENCIES, base="USD",
             resp = requests.get(url, params=params)
             resp.raise_for_status()
             data = resp.json()
-            if "rates" in data:
-                rates = data["rates"]
-            elif "conversion_rates" in data:
-                rates = data["conversion_rates"]
-            else:
+            if "rates" not in data:
                 print("Warning: no rates for", d, data)
                 continue
-
-            # ensure all currencies present
+            rates = data["rates"]
             row = {c: rates.get(c, np.nan) for c in currencies}
             row["date"] = d
             all_rates.append(row)
-
         except Exception as e:
             print("Error fetching for date", d, ":", e)
             continue
 
-    df = pd.DataFrame(all_rates).set_index("date")
-    df = df.sort_index()
+    df = pd.DataFrame(all_rates)
+    if df.empty:
+        raise RuntimeError("No FX data could be fetched")
+    df = df.set_index("date").sort_index()
     return df
 
 # ---------------------------------------
@@ -157,10 +152,10 @@ if __name__ == "__main__":
                                 start_date=datetime.utcnow().date() - timedelta(days=60),
                                 end_date=datetime.utcnow().date())
 
-    if rates.empty or len(rates) < 3:
-        raise RuntimeError("Not enough historical FX data to compute flows")
-
     flows = compute_flows(rates)
+
+    if flows.empty:
+        raise RuntimeError("Not enough historical FX data to compute flows")
 
     G = build_country_graph()
 
@@ -178,4 +173,5 @@ if __name__ == "__main__":
         "flow_pred": pred,
         "pred_%": (pred - 1) * 100
     }))
+
     draw_flow(G, last)
