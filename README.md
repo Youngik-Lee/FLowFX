@@ -36,7 +36,6 @@ FlowFX/
 │── figures/
 ```
 
----
 
 ## 🚀 How It Works
 
@@ -59,7 +58,6 @@ u_next = u - (u * (A_norm @ u)) + nu * L u - gamma u + forcing
 ### 4) Animate result  
 Animated country flow changes over time.
 
----
 
 ## 📦 Installation
 
@@ -67,15 +65,11 @@ Animated country flow changes over time.
 pip install -r requirements.txt
 ```
 
----
-
 ## ▶ Run Model
 
 ```
 python src/fx_flow_model.py
 ```
-
----
 
 ## ▶ Run Animation
 
