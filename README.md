@@ -17,8 +17,8 @@ FlowFX is a network-based FX prediction and visualization project. It models cur
 1. Clone the repo:
 
 ```bash
-git clone https://github.com/Youngik-Lee/FlowFX.git
-cd FlowFX
+git clone https://github.com/Youngik-Lee/FLowFX.git
+cd FLowFX
 ```
 
 ## 📁 Repository Structure
@@ -69,11 +69,11 @@ pip install -r requirements.txt
 ## ▶ Run Model
 
 ```
-python src/fx_flow_model.py
+python3 src/fx_flow_model.py
 ```
 
 ## ▶ Run Animation
 
 ```
-python src/fx_flow_animation.py
+python3 src/fx_flow_animation.py
 ```
