@@ -19,3 +19,66 @@ FlowFX is a network-based FX prediction and visualization project. It models cur
 ```bash
 git clone https://github.com/Youngik-Lee/FlowFX.git
 cd FlowFX
+
+## 📁 Repository Structure
+
+```
+FlowFX/
+│── README.md
+│── requirements.txt
+│── Dockerfile
+│── src/
+│    ├── fx_flow_model.py
+│    ├── fx_flow_api.py
+│    ├── fx_flow_animation.py
+│── data/
+│── output/
+│── figures/
+```
+
+---
+
+## 🚀 How It Works
+
+### 1) Compute flow index  
+```
+flow[c] = today_rate[c] / yesterday_rate[c]
+```
+
+### 2) Flow direction rule  
+```
+Arrow from lower flow → higher flow  
+Magnitude = |flow_high - flow_low|
+```
+
+### 3) Navier–Stokes style prediction  
+```
+u_next = u - (u * (A_norm @ u)) + nu * L u - gamma u + forcing
+```
+
+### 4) Animate result  
+Animated country flow changes over time.
+
+---
+
+## 📦 Installation
+
+```
+pip install -r requirements.txt
+```
+
+---
+
+## ▶ Run Model
+
+```
+python src/fx_flow_model.py
+```
+
+---
+
+## ▶ Run Animation
+
+```
+python src/fx_flow_animation.py
+```
