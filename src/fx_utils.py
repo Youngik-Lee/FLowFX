@@ -11,29 +11,39 @@ DT = 1.0
 # -------------------------------
 # FETCH FX RATES FROM YAHOO
 # -------------------------------
-def fetch_rates_yahoo(base="USD", start_date=None, end_date=None):
-    """
-    Fetch historical FX rates from Yahoo Finance.
-    Returns a DataFrame with index=dates, columns=currencies relative to base.
-    """
-    if start_date is None:
-        start_date = pd.Timestamp.today() - pd.Timedelta(days=60)
-    if end_date is None:
-        end_date = pd.Timestamp.today()
+import yfinance as yf
+import pandas as pd
+import numpy as np
 
-    df_all = pd.DataFrame()
+CURRENCIES = ["USD", "EUR", "JPY", "KRW", "GBP", "SGD", "HKD", "AUD"]
+
+def fetch_rates_yahoo(base="USD", start_date=None, end_date=None):
+    tickers = []
     for c in CURRENCIES:
         if c == base:
             continue
-        ticker = f"{c}{base}=X"  # e.g., EURUSD=X
-        data = yf.download(ticker, start=start_date, end=end_date, auto_adjust=True)
-        if data.empty:
-            print(f"Warning: No data for {ticker}")
-            continue
-        df_all[c] = data['Close']  # use 'Close' as adjusted price
+        tickers.append(f"{c}{base}=X")  # e.g., EURUSD=X
+
+    # Download data
+    df_all = yf.download(tickers, start=start_date, end=end_date)
+    if df_all.empty:
+        raise RuntimeError("No FX data fetched from Yahoo")
+    
+    # Yahoo returns multiindex ['Adj Close']
+    if 'Adj Close' in df_all:
+        df_all = df_all['Adj Close']
+
+    # Add base currency as 1
     df_all[base] = 1.0
+
+    # Ensure all currencies present
+    for c in CURRENCIES:
+        if c not in df_all.columns:
+            df_all[c] = np.nan
+
+    df_all = df_all[CURRENCIES]  # reorder
     df_all = df_all.ffill().bfill()  # fill missing
-    return df_all[CURRENCIES]
+    return df_all
 
 # -------------------------------
 # BUILD COUNTRY GRAPH
