@@ -10,7 +10,7 @@ CURRENCIES = ["USD", "EUR", "JPY", "KRW", "GBP", "SGD", "HKD", "AUD"]
 DT = 1.0
 
 # ---------------------------------------
-# FX RATES — historical data (keyless)
+# FX RATES API — historical data (keyless)
 # ---------------------------------------
 def fetch_rates_history(currencies=CURRENCIES, base="USD",
                         start_date=None, end_date=None):
@@ -18,8 +18,9 @@ def fetch_rates_history(currencies=CURRENCIES, base="USD",
     Fetch historical FX rates from exchangerate.host between start_date and end_date (inclusive).
     Returns a DataFrame with index = dates, columns = currencies (relative to base).
     """
-    if end_date is None:
-        end_date = datetime.utcnow().date()
+    today = datetime.utcnow().date()
+    if end_date is None or end_date > today:
+        end_date = today
     if start_date is None:
         start_date = end_date - timedelta(days=30)
 
@@ -27,6 +28,8 @@ def fetch_rates_history(currencies=CURRENCIES, base="USD",
     dates = pd.date_range(start=start_date, end=end_date, freq='D')
 
     for d in dates:
+        if d.date() > today:
+            continue  # skip future dates
         url = f"https://api.exchangerate.host/{d.strftime('%Y-%m-%d')}"
         params = {"base": base, "symbols": ",".join(currencies)}
         try:
@@ -142,12 +145,13 @@ def draw_flow(G, flow):
 # MAIN
 # ---------------------------------------
 if __name__ == "__main__":
-    # fetch past 60 days FX rates
-    rates = fetch_rates_history(
-        CURRENCIES, base="USD",
-        start_date=datetime.utcnow().date() - timedelta(days=60),
-        end_date=datetime.utcnow().date()
-    )
+    today = datetime.utcnow().date()
+    start_date = today - timedelta(days=60)
+    end_date = today  # ensure no future dates
+
+    rates = fetch_rates_history(CURRENCIES, base="USD",
+                                start_date=start_date,
+                                end_date=end_date)
 
     flows = compute_flows(rates)
 
