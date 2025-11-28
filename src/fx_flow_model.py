@@ -4,10 +4,46 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 from fx_flow_api import fetch_rates_real
+import requests
 
 CURRENCIES = ["USD", "EUR", "JPY", "KRW", "GBP", "SGD", "HKD", "AUD"]
-DT = 1.0
 
+def fetch_rates_real(currencies=CURRENCIES, base="USD"):
+    """
+    Fetch real FX rates from a free API.
+    Returns a DataFrame with 1 row and columns = currencies.
+    """
+    # Example: ExchangeRate API endpoint (replace with your API key)
+    API_KEY = "YOUR_API_KEY_HERE"
+    url = f"https://v6.exchangerate-api.com/v6/{API_KEY}/latest/{base}"
+
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+
+        # Check which key exists
+        if "conversion_rates" in data:
+            rates_data = data["conversion_rates"]
+        elif "rates" in data:
+            rates_data = data["rates"]
+        else:
+            raise ValueError(f"No FX rates found in API response: {data}")
+
+        # Keep only requested currencies
+        rates = {c: rates_data[c] for c in currencies if c in rates_data}
+        missing = [c for c in currencies if c not in rates]
+        if missing:
+            print(f"Warning: missing rates for {missing}")
+
+        return pd.DataFrame([rates])
+
+    except requests.RequestException as e:
+        print("Network/API error:", e)
+        return pd.DataFrame(columns=currencies)
+    except ValueError as e:
+        print("Data error:", e)
+        return pd.DataFrame(columns=currencies)
 # ---------------------------------------
 # GRAPH
 # ---------------------------------------
