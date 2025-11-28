@@ -2,7 +2,7 @@
 
 FLowFX is a network-based FX prediction and visualization project. It models currency flows as `rate_today / rate_yesterday`, constructs a country/currency network, applies a Navier–Stokes-inspired dynamics on that network, and produces 1-day flow predictions.
 
-##Architecture
+## Architecture
 ```
 FX Data (Yahoo)
       ↓
