@@ -19,6 +19,26 @@ if __name__ == "__main__":
     if flows.empty:
         raise RuntimeError("Not enough historical FX data to compute flows")
 
+   rates = fetch_rates_yahoo()
+   flows = compute_flows(rates)
+
+   # --- new quant modules ---
+   rates_ts = add_timeseries_features(rates)
+   cov = compute_covariance(rates)
+   corr = compute_correlation(rates)
+   alpha_df = compute_alpha_signals(rates_ts)
+
+   lin_model, coefs, intercept = run_linear_regression(rates)
+   ml_model = train_ml_model(rates)
+
+   X_last = rates.drop(columns=["USD"]).pct_change().iloc[-1].fillna(0)
+   ml_pred = predict_next_day(ml_model, X_last)
+
+   slippage_pred = apply_slippage(ml_pred, volume=5_000_000)
+
+   print("ML next-day prediction:", ml_pred)
+   print("After slippage:", slippage_pred)
+    
     G = build_country_graph()
     nu, gamma, f, A, L = calibrate(flows, G)
 
@@ -38,3 +58,5 @@ if __name__ == "__main__":
     }))
 
     draw_flow(G, last)
+
+
