@@ -11,13 +11,13 @@ from matplotlib.patches import FancyArrowPatch
 CURRENCIES = ["USD", "EUR", "JPY", "KRW", "GBP", "SGD", "HKD", "AUD"]
 DT = 1.0
 
-BASE_OUTPUT = "output"
-ANIM_DIR = os.path.join(BASE_OUTPUT, "animation")  # NEW
-os.makedirs(ANIM_DIR, exist_ok=True)              # NEW
+# Output directory
+OUTPUT_DIR = "output/animation"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# -------------------------------------------------------
+# -----------------------------
 # FETCH FX DATA
-# -------------------------------------------------------
+# -----------------------------
 def fetch_rates_for_animation(base="USD", start_date=None, end_date=None):
     today = datetime.utcnow().date()
     if end_date is None or end_date > today:
@@ -29,13 +29,12 @@ def fetch_rates_for_animation(base="USD", start_date=None, end_date=None):
     df = yf.download(tickers, start=start_date, end=end_date)
 
     if 'Adj Close' in df:
-        df = df['Adj Close']
+        df = df["Adj Close"]
 
     if isinstance(df, pd.Series):
         df = df.to_frame()
 
     df[base] = 1.0
-    
     for c in CURRENCIES:
         if c not in df.columns:
             df[c] = np.nan
@@ -43,19 +42,22 @@ def fetch_rates_for_animation(base="USD", start_date=None, end_date=None):
     df = df[CURRENCIES].ffill().bfill()
     return df
 
-# -------------------------------------------------------
+
+# -----------------------------
 # COMPUTE FLOWS
-# -------------------------------------------------------
-def compute_flows(rates: pd.DataFrame):
+# -----------------------------
+def compute_flows(rates):
     return (rates / rates.shift(1)).iloc[1:]
 
-# -------------------------------------------------------
+
+# -----------------------------
 # COUNTRY GRAPH
-# -------------------------------------------------------
+# -----------------------------
 def build_country_graph():
     G = nx.Graph()
     for c in CURRENCIES:
         G.add_node(c)
+
     edges = [
         ("USD","EUR"), ("USD","JPY"), ("USD","KRW"),
         ("USD","GBP"), ("USD","SGD"), ("USD","HKD"),
@@ -66,17 +68,19 @@ def build_country_graph():
     G.add_edges_from(edges)
     return G
 
-# -------------------------------------------------------
-# DRAW ONE FRAME
-# -------------------------------------------------------
+
+# -----------------------------
+# DRAW FRAME
+# -----------------------------
 def draw_frame(G, flow, pos, filename):
     plt.figure(figsize=(10,7))
     ax = plt.gca()
 
+    # Directed graph
     DG = nx.DiGraph()
     DG.add_nodes_from(G.nodes())
 
-    # Build directional edges (lower → higher)
+    # Build directional edges
     for u, v in G.edges():
         fu = flow[CURRENCIES.index(u)]
         fv = flow[CURRENCIES.index(v)]
@@ -86,8 +90,16 @@ def draw_frame(G, flow, pos, filename):
         mag = abs(fv - fu)
         DG.add_edge(start, end, weight=mag)
 
-    # Node color normalization
+    # Node colors
     norm_flow = (flow - np.min(flow)) / (np.max(flow) - np.min(flow) + 1e-8)
+
+    nx.draw_networkx_nodes(
+        DG, pos,
+        node_size=1500,
+        node_color=norm_flow,
+        cmap="coolwarm"
+    )
+    nx.draw_networkx_labels(DG, pos, font_size=12, font_weight="bold")
 
     # Draw arrows
     for u, v, data in DG.edges(data=True):
@@ -98,40 +110,21 @@ def draw_frame(G, flow, pos, filename):
             (x1, y1), (x2, y2),
             arrowstyle='-|>',
             color='gray',
-            linewidth=1.5 + 3*data['weight'],
-            mutation_scale=15 + 25*data['weight'],
-            connectionstyle="arc3,rad=0.07",
-            zorder=1,
+            linewidth=2 + 3*data['weight'],
+            mutation_scale=15 + 20*data['weight'],
+            connectionstyle="arc3,rad=0.1"
         )
         ax.add_patch(arrow)
 
-    # Draw nodes
-    nx.draw_networkx_nodes(
-        DG, pos,
-        node_size=1500,
-        node_color=norm_flow,
-        cmap="coolwarm",
-        edgecolors="black",
-        linewidths=2,
-        zorder=2,
-    )
-
-    # Draw labels
-    nx.draw_networkx_labels(
-        DG, pos,
-        font_size=12,
-        font_weight="bold",
-        zorder=3
-    )
-
+    plt.title("FX Flow Network")
     plt.axis("off")
-    plt.tight_layout()
-    plt.savefig(filename, dpi=150)
+    plt.savefig(filename, dpi=150, bbox_inches="tight")
     plt.close()
 
-# -------------------------------------------------------
-# MAIN ANIMATION
-# -------------------------------------------------------
+
+# -----------------------------
+# MAIN
+# -----------------------------
 if __name__ == "__main__":
     G = build_country_graph()
     rates = fetch_rates_for_animation(base="USD")
@@ -145,10 +138,10 @@ if __name__ == "__main__":
     frames = []
     for i in range(len(flows)):
         f = flows.iloc[i].values
-        fname = os.path.join(ANIM_DIR, f"frame_{i}.png")  # NEW
+        fname = os.path.join(OUTPUT_DIR, f"frame_{i}.png")
         draw_frame(G, f, pos, fname)
         frames.append(imageio.imread(fname))
 
-    gif_path = os.path.join(ANIM_DIR, "flow_animation.gif")  # NEW
+    gif_path = os.path.join(OUTPUT_DIR, "flow_animation.gif")
     imageio.mimsave(gif_path, frames, fps=2)
     print(f"Saved animation: {gif_path}")
