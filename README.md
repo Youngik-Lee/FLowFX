@@ -30,7 +30,6 @@ FlowFX/
 │── Dockerfile
 │── src/
 │    ├── fx_flow_model.py
-│    ├── fx_flow_api.py
 │    ├── fx_flow_animation.py
 │── data/
 │── output/
