@@ -2,6 +2,27 @@
 
 FlowFX is a network-based FX prediction and visualization project. It models currency flows as `rate_today / rate_yesterday`, constructs a country/currency network, applies a Navier–Stokes-inspired dynamics on that network, and produces 1-day flow predictions.
 
+##Architecture
+```
+FX Data (Yahoo)
+      ↓
+Time Series Stats (vol, MA)
+      ↓
+Covariance Matrix
+      ↓
+Alpha Factors  → modifies forcing term
+      ↓
+Regression Model → auxiliary predictor
+      ↓
+ML Model → auxiliary predictor
+      ↓
+Navier–Stokes Simulation (primary engine)
+      ↓
+Slippage Model  → adjusts final output
+      ↓
+Flow Visualization (network arrows)
+```
+
 ## Features
 
 - Fetch live FX rates from exchangerate.host
