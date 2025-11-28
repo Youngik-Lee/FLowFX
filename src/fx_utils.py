@@ -96,25 +96,45 @@ def calibrate(flows, G):
 # DRAW FLOW
 # -------------------------------
 def draw_flow(G, flow):
-    pos = nx.spring_layout(G, seed=3)
-    plt.figure(figsize=(10,7))
-    nx.draw_networkx_nodes(G, pos, node_size=1500,
-                           node_color=(flow-1), cmap="coolwarm")
-    nx.draw_networkx_labels(G,pos)
-
+    """
+    Draw FX flow network.
+    - G: networkx Graph (or DiGraph)
+    - flow: np.array or list of flows (same order as CURRENCIES)
+    """
+    # Convert to DiGraph for directional arrows
+    DG = nx.DiGraph()
+    DG.add_nodes_from(G.nodes())
+    
+    # Add edges in direction: lower → higher
     for u, v in G.edges():
         fu = flow[CURRENCIES.index(u)]
         fv = flow[CURRENCIES.index(v)]
         if fu == fv:
-            continue
+            continue  # skip equal flows
         start, end = (u, v) if fu < fv else (v, u)
         mag = abs(fv - fu)
+        DG.add_edge(start, end, weight=mag)
+    
+    pos = nx.spring_layout(DG, seed=42)
+    plt.figure(figsize=(10, 7))
+    
+    # Draw nodes colored by flow magnitude
+    node_colors = flow - np.min(flow)
+    nx.draw_networkx_nodes(DG, pos, node_size=1500, node_color=node_colors, cmap="coolwarm")
+    nx.draw_networkx_labels(DG, pos, font_size=12, font_weight="bold")
+    
+    # Draw edges with width proportional to flow difference
+    for u, v, data in DG.edges(data=True):
         nx.draw_networkx_edges(
-            G, pos, edgelist=[(start, end)],
-            width=3*mag,
-            arrowstyle="->", arrowsize=20+80*mag
+            DG, pos,
+            edgelist=[(u, v)],
+            width=3 + 5*data['weight'],  # scale width by magnitude
+            alpha=0.7,
+            arrowstyle='-|>',
+            arrowsize=15 + 30*data['weight'],  # scale arrow size
+            edge_color='gray'
         )
-
-    plt.title("FX Flow: Lower → Higher")
-    plt.axis("off")
+    
+    plt.title("FX Flow Network: Lower → Higher")
+    plt.axis('off')
     plt.show()
