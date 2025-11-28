@@ -1,6 +1,6 @@
-# FlowFX
+# FLowFX
 
-FlowFX is a network-based FX prediction and visualization project. It models currency flows as `rate_today / rate_yesterday`, constructs a country/currency network, applies a Navier–Stokes-inspired dynamics on that network, and produces 1-day flow predictions.
+FLowFX is a network-based FX prediction and visualization project. It models currency flows as `rate_today / rate_yesterday`, constructs a country/currency network, applies a Navier–Stokes-inspired dynamics on that network, and produces 1-day flow predictions.
 
 ##Architecture
 ```
@@ -52,9 +52,17 @@ FlowFX/
 │── src/
 │    ├── fx_flow_model.py
 │    ├── fx_flow_animation.py
+│    ├── alpha_model.py
+│    ├── covariance_model.py
+│    ├── regression_model.py
+│    ├── ml_model.py
+│    ├── slippage.py
+│    ├── timeseries_tools.py
 │── data/
+│    ├── sample_fx_data.csv      
 │── output/
 │── figures/
+
 ```
 
 
