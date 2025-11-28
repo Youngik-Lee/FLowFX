@@ -17,5 +17,5 @@ FlowFX is a network-based FX prediction and visualization project. It models cur
 1. Clone the repo:
 
 ```bash
-git clone https://github.com/your-org/FlowFX.git
+git clone https://github.com/Youngik-Lee/FlowFX.git
 cd FlowFX
