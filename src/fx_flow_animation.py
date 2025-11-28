@@ -11,9 +11,26 @@ from matplotlib.patches import FancyArrowPatch
 CURRENCIES = ["USD", "EUR", "JPY", "KRW", "GBP", "SGD", "HKD", "AUD"]
 DT = 1.0
 
-# Output directory
+# -----------------------------
+# Directories
+# -----------------------------
 OUTPUT_DIR = "output/animation"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+# -----------------------------
+# FIXED, SAFE NODE POSITIONS (NO MORE BLANK IMAGES)
+# -----------------------------
+def fixed_layout():
+    return {
+        "USD": (0.0, 0.0),
+        "EUR": (1.0, -0.3),
+        "JPY": (0.6, -1.0),
+        "KRW": (-0.6, -1.0),
+        "HKD": (-1.0, -0.3),
+        "SGD": (-1.0, 0.5),
+        "AUD": (0.0, 1.0),
+        "GBP": (1.0, 0.5),
+    }
 
 # -----------------------------
 # FETCH FX DATA
@@ -27,10 +44,8 @@ def fetch_rates_for_animation(base="USD", start_date=None, end_date=None):
 
     tickers = [f"{c}{base}=X" for c in CURRENCIES if c != base]
     df = yf.download(tickers, start=start_date, end=end_date)
-
     if 'Adj Close' in df:
-        df = df["Adj Close"]
-
+        df = df['Adj Close']
     if isinstance(df, pd.Series):
         df = df.to_frame()
 
@@ -38,17 +53,14 @@ def fetch_rates_for_animation(base="USD", start_date=None, end_date=None):
     for c in CURRENCIES:
         if c not in df.columns:
             df[c] = np.nan
-
     df = df[CURRENCIES].ffill().bfill()
     return df
-
 
 # -----------------------------
 # COMPUTE FLOWS
 # -----------------------------
-def compute_flows(rates):
+def compute_flows(rates: pd.DataFrame):
     return (rates / rates.shift(1)).iloc[1:]
-
 
 # -----------------------------
 # COUNTRY GRAPH
@@ -57,7 +69,6 @@ def build_country_graph():
     G = nx.Graph()
     for c in CURRENCIES:
         G.add_node(c)
-
     edges = [
         ("USD","EUR"), ("USD","JPY"), ("USD","KRW"),
         ("USD","GBP"), ("USD","SGD"), ("USD","HKD"),
@@ -68,19 +79,17 @@ def build_country_graph():
     G.add_edges_from(edges)
     return G
 
-
 # -----------------------------
-# DRAW FRAME
+# DRAW ONE FRAME
 # -----------------------------
 def draw_frame(G, flow, pos, filename):
-    plt.figure(figsize=(10,7))
+    plt.figure(figsize=(10, 7))
     ax = plt.gca()
 
-    # Directed graph
+    # Directed graph for directional arrows
     DG = nx.DiGraph()
     DG.add_nodes_from(G.nodes())
 
-    # Build directional edges
     for u, v in G.edges():
         fu = flow[CURRENCIES.index(u)]
         fv = flow[CURRENCIES.index(v)]
@@ -90,30 +99,22 @@ def draw_frame(G, flow, pos, filename):
         mag = abs(fv - fu)
         DG.add_edge(start, end, weight=mag)
 
-    # Node colors
+    # Draw nodes
     norm_flow = (flow - np.min(flow)) / (np.max(flow) - np.min(flow) + 1e-8)
-
-    nx.draw_networkx_nodes(
-        DG, pos,
-        node_size=1500,
-        node_color=norm_flow,
-        cmap="coolwarm"
-    )
+    nx.draw_networkx_nodes(DG, pos, node_size=1500,
+                           node_color=norm_flow, cmap="coolwarm")
     nx.draw_networkx_labels(DG, pos, font_size=12, font_weight="bold")
 
-    # Draw arrows
+    # Draw arrows by FancyArrowPatch
     for u, v, data in DG.edges(data=True):
         x1, y1 = pos[u]
         x2, y2 = pos[v]
-
-        arrow = FancyArrowPatch(
-            (x1, y1), (x2, y2),
-            arrowstyle='-|>',
-            color='gray',
-            linewidth=2 + 3*data['weight'],
-            mutation_scale=15 + 20*data['weight'],
-            connectionstyle="arc3,rad=0.1"
-        )
+        arrow = FancyArrowPatch((x1, y1), (x2, y2),
+                                arrowstyle='-|>',
+                                color='gray',
+                                linewidth=2 + 3*data['weight'],
+                                mutation_scale=15 + 20*data['weight'],
+                                connectionstyle="arc3,rad=0.1")
         ax.add_patch(arrow)
 
     plt.title("FX Flow Network")
@@ -121,19 +122,18 @@ def draw_frame(G, flow, pos, filename):
     plt.savefig(filename, dpi=150, bbox_inches="tight")
     plt.close()
 
-
 # -----------------------------
 # MAIN
 # -----------------------------
 if __name__ == "__main__":
     G = build_country_graph()
+    pos = fixed_layout()   # <--- FIXED LAYOUT HERE
+
     rates = fetch_rates_for_animation(base="USD")
     flows = compute_flows(rates)
 
     if flows.empty:
         raise RuntimeError("No FX flow data to animate")
-
-    pos = nx.spring_layout(G, seed=42)
 
     frames = []
     for i in range(len(flows)):
