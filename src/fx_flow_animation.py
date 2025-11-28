@@ -12,6 +12,7 @@ CURRENCIES = ["USD", "EUR", "JPY", "KRW", "GBP", "SGD", "HKD", "AUD"]
 DT = 1.0
 OUTPUT_DIR = "output"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+
 # -----------------------------
 # FETCH FX DATA
 # -----------------------------
