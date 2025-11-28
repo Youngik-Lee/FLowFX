@@ -1,49 +1,63 @@
-import numpy as np
+import requests
 import pandas as pd
+import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
-from fx_flow_api import fetch_rates_real
-import requests
+from datetime import datetime, timedelta
 
 CURRENCIES = ["USD", "EUR", "JPY", "KRW", "GBP", "SGD", "HKD", "AUD"]
+DT = 1.0
 
-def fetch_rates_real(currencies=CURRENCIES, base="USD"):
+# ---------------------------------------
+# FX RATES API — historcal data
+# ---------------------------------------
+def fetch_rates_history(currencies=CURRENCIES, base="USD",
+                        start_date=None, end_date=None):
     """
-    Fetch real FX rates from a free API.
-    Returns a DataFrame with 1 row and columns = currencies.
+    Fetch historical FX rates from exchangerate.host between start_date and end_date (inclusive).
+    Returns a DataFrame with index = dates, columns = currencies (relative to base).
     """
-    # Example: ExchangeRate API endpoint (replace with your API key)
-    API_KEY = "YOUR_API_KEY_HERE"
-    url = f"https://v6.exchangerate-api.com/v6/{API_KEY}/latest/{base}"
+    # If dates not provided, default: last 30 days
+    if end_date is None:
+        end_date = datetime.utcnow().date()
+    if start_date is None:
+        start_date = end_date - timedelta(days=30)
 
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-        data = response.json()
+    all_rates = []
+    dates = pd.date_range(start=start_date, end=end_date, freq='D')
 
-        # Check which key exists
-        if "conversion_rates" in data:
-            rates_data = data["conversion_rates"]
-        elif "rates" in data:
-            rates_data = data["rates"]
-        else:
-            raise ValueError(f"No FX rates found in API response: {data}")
+    for d in dates:
+        url = f"https://api.exchangerate.host/{d.strftime('%Y-%m-%d')}"
+        params = {
+            "base": base,
+            "symbols": ",".join(currencies)
+        }
+        try:
+            resp = requests.get(url, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+            if "rates" in data:
+                rates = data["rates"]
+            elif "conversion_rates" in data:
+                rates = data["conversion_rates"]
+            else:
+                print("Warning: no rates for", d, data)
+                continue
 
-        # Keep only requested currencies
-        rates = {c: rates_data[c] for c in currencies if c in rates_data}
-        missing = [c for c in currencies if c not in rates]
-        if missing:
-            print(f"Warning: missing rates for {missing}")
+            # ensure all currencies present
+            row = {c: rates.get(c, np.nan) for c in currencies}
+            row["date"] = d
+            all_rates.append(row)
 
-        return pd.DataFrame([rates])
+        except Exception as e:
+            print("Error fetching for date", d, ":", e)
+            continue
 
-    except requests.RequestException as e:
-        print("Network/API error:", e)
-        return pd.DataFrame(columns=currencies)
-    except ValueError as e:
-        print("Data error:", e)
-        return pd.DataFrame(columns=currencies)
+    df = pd.DataFrame(all_rates).set_index("date")
+    df = df.sort_index()
+    return df
+
 # ---------------------------------------
 # GRAPH
 # ---------------------------------------
@@ -65,7 +79,7 @@ def build_country_graph():
 # ---------------------------------------
 # FLOW CALCULATION
 # ---------------------------------------
-def compute_flows(rates):
+def compute_flows(rates: pd.DataFrame):
     return (rates / rates.shift(1)).iloc[1:]
 
 # ---------------------------------------
@@ -97,11 +111,10 @@ def calibrate(flows, G):
 
     res = minimize(
         lambda x: loss(x, flows, A, L),
-        x0=[0.1,0.1,0.01],
+        x0=[0.1, 0.1, 0.0],
         bounds=[(0,3),(0,3),(-0.05,0.05)]
     )
-    nu, gamma, f = res.x
-    return nu, gamma, f, A, L
+    return (*res.x, A, L)
 
 # ---------------------------------------
 # DRAW FLOW ARROWS
@@ -113,18 +126,22 @@ def draw_flow(G, flow):
                            node_color=(flow-1), cmap="coolwarm")
     nx.draw_networkx_labels(G,pos)
 
-    for u,v in G.edges():
+    for u, v in G.edges():
         fu = flow[CURRENCIES.index(u)]
-        fv = flow[CURRENCORIES.index(v)]
-        if fu==fv: continue
+        fv = flow[CURRENCIES.index(v)]
+        if fu == fv:
+            continue
         if fu < fv:
-            start,end = u,v; mag = fv-fu
+            start, end = u, v
+            mag = fv - fu
         else:
-            start,end = v,u; mag = fu-fv
+            start, end = v, u
+            mag = fu - fv
 
         nx.draw_networkx_edges(
-            G,pos,edgelist=[(start,end)],width=3*mag,
-            arrowstyle="->",arrowsize=20+80*mag
+            G, pos, edgelist=[(start, end)],
+            width=3*mag,
+            arrowstyle="->", arrowsize=20+80*mag
         )
 
     plt.title("FX Flow: Lower → Higher")
@@ -135,15 +152,21 @@ def draw_flow(G, flow):
 # MAIN
 # ---------------------------------------
 if __name__ == "__main__":
-    # load rates from real API
-    rates = fetch_rates_real(CURRENCIES)
+    # fetch past 60 days FX rates
+    rates = fetch_rates_history(CURRENCIES, base="USD",
+                                start_date=datetime.utcnow().date() - timedelta(days=60),
+                                end_date=datetime.utcnow().date())
+
+    if rates.empty or len(rates) < 3:
+        raise RuntimeError("Not enough historical FX data to compute flows")
+
     flows = compute_flows(rates)
 
     G = build_country_graph()
 
     nu, gamma, f, A, L = calibrate(flows, G)
     print("NAVIER SYSTEM:")
-    print("nu:",nu," gamma:",gamma," f:",f)
+    print("nu:", nu, " gamma:", gamma, " f:", f)
 
     last = flows.iloc[-1].values
     pred = simulate_step(last, A, L, nu, gamma, f*np.ones(len(CURRENCIES)))
@@ -153,7 +176,6 @@ if __name__ == "__main__":
         "currency": CURRENCIES,
         "flow_today": last,
         "flow_pred": pred,
-        "pred_%": (pred-1)*100
+        "pred_%": (pred - 1) * 100
     }))
-
     draw_flow(G, last)
