@@ -7,7 +7,20 @@ from alpha_model import compute_alpha_signals
 from regression_model import run_linear_regression
 from ml_model import train_ml_model, predict_next_day
 from slippage import apply_slippage
+import os
+OUTPUT_DIR = "output/model"
+def ensure_output_dir():
+    if not os.path.exists(OUTPUT_DIR):
+        os.makedirs(OUTPUT_DIR)
 
+def save_text(name: str, content: str):
+    """Save text data into output/model directory."""
+    ensure_output_dir()
+    path = os.path.join(OUTPUT_DIR, name)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(content)
+    print(f"[Saved] {path}")
+    
 if __name__ == "__main__":
     today = pd.Timestamp.today()
     start_date = today - pd.Timedelta(days=60)
@@ -36,11 +49,20 @@ if __name__ == "__main__":
 
     print("ML next-day prediction:", ml_pred)
     print("After slippage:", slippage_pred)
-
+    save_text("ml_prediction.txt",
+              f"ML next-day prediction:\n{ml_pred}\n\nAfter slippage:\n{slippage_pred}\n")
     # --- Navier-Stokes simulation ---
     G = build_country_graph()
     nu, gamma, f, A, L = calibrate(flows, G)
 
+    navier_str = (
+    "NAVIER SYSTEM PARAMETERS\n"
+    f"nu: {nu}\n"
+    f"gamma: {gamma}\n"
+    f"f: {f}\n"
+    "------------------------------\n"
+    )
+    save_text("navier_parameters.txt", navier_str)
     print("NAVIER SYSTEM:")
     print("nu:", nu, " gamma:", gamma, " f:", f)
 
@@ -54,5 +76,5 @@ if __name__ == "__main__":
         "flow_pred": pred,
         "pred_%": (pred - 1) * 100
     }))
-
+    save_text("flow_prediction.txt", pred_df.to_string(index=False))
     draw_flow(G, last)
