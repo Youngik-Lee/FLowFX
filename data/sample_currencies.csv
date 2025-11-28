@@ -1,0 +1,7 @@
+{
+  "USD": {"region": "United States", "symbol": "$"},
+  "EUR": {"region": "Eurozone", "symbol": "€"},
+  "JPY": {"region": "Japan", "symbol": "¥"},
+  "GBP": {"region": "United Kingdom", "symbol": "£"},
+  "KRW": {"region": "South Korea", "symbol": "₩"}
+}
