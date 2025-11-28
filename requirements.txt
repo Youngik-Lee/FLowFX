@@ -1,0 +1,8 @@
+numpy
+pandas
+matplotlib
+networkx
+scipy
+requests
+imageio
+imageio-ffmpeg
