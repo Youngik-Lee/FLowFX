@@ -3,13 +3,11 @@ import networkx as nx
 import numpy as np
 import imageio
 from fx_flow_model import build_country_graph, compute_flows
-from fx_flow_api import fetch_rates_real
-
+from fx_utils import fetch_rates_yahoo, CURRENCIES  # import currencies and fetch function
 def draw_frame(G, flow, pos, filename):
     plt.figure(figsize=(10,7))
     nx.draw_networkx_nodes(G,pos,node_size=1500,node_color=(flow-1),cmap="coolwarm")
     nx.draw_networkx_labels(G,pos)
-
     for u,v in G.edges():
         fu = flow[CURRENCIES.index(u)]
         fv = flow[CURRENCIES.index(v)]
@@ -20,7 +18,7 @@ def draw_frame(G, flow, pos, filename):
 
         nx.draw_networkx_edges(
             G,pos,edgelist=[(start,end)],width=3*mag,
-            arrowstyle="->",arrowsize=30
+            arrows=True  # remove arrowstyle warning
         )
     plt.axis("off")
     plt.savefig(filename)
@@ -28,7 +26,7 @@ def draw_frame(G, flow, pos, filename):
 
 if __name__ == "__main__":
     G = build_country_graph()
-    rates = fetch_rates_real(CURRENCIES)
+    rates = fetch_rates_yahoo(CURRENCIES)  # use the function from fx_utils
     flows = compute_flows(rates)
 
     pos = nx.spring_layout(G, seed=2)
