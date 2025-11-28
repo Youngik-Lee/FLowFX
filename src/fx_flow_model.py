@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import pandas as pd
+import numpy as np               # <-- add this
 from fx_utils import CURRENCIES, fetch_rates_yahoo, build_country_graph, compute_flows, calibrate, simulate_step, draw_flow
 
 if __name__ == "__main__":
