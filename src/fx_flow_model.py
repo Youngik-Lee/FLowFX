@@ -4,52 +4,48 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 from datetime import datetime, timedelta
-import requests
+import yfinance as yf
 
+# ---------------------------------------
+# CONFIG
+# ---------------------------------------
 CURRENCIES = ["USD", "EUR", "JPY", "KRW", "GBP", "SGD", "HKD", "AUD"]
 DT = 1.0
 
+# Mapping currencies to Yahoo tickers for USD base
+# Yahoo FX tickers format: CURUSD=X
+def get_yahoo_tickers(base="USD"):
+    tickers = {}
+    for cur in CURRENCIES:
+        if cur == base:
+            tickers[cur] = None  # base currency
+        else:
+            tickers[cur] = f"{cur}{base}=X"
+    return tickers
+
 # ---------------------------------------
-# FX RATES API — historical data (keyless)
+# FETCH FX RATES
 # ---------------------------------------
-def fetch_rates_history(currencies=CURRENCIES, base="USD",
-                        start_date=None, end_date=None):
-    """
-    Fetch historical FX rates from exchangerate.host between start_date and end_date (inclusive).
-    Returns a DataFrame with index = dates, columns = currencies (relative to base).
-    """
-    today = datetime.utcnow().date()
-    if end_date is None or end_date > today:
-        end_date = today
+def fetch_rates_yahoo(base="USD", start_date=None, end_date=None):
+    if end_date is None:
+        end_date = datetime.utcnow().date()
     if start_date is None:
-        start_date = end_date - timedelta(days=30)
+        start_date = end_date - timedelta(days=60)
 
-    all_rates = []
-    dates = pd.date_range(start=start_date, end=end_date, freq='D')
+    tickers = get_yahoo_tickers(base)
+    df_all = pd.DataFrame(index=pd.date_range(start=start_date, end=end_date))
 
-    for d in dates:
-        if d.date() > today:
-            continue  # skip future dates
-        url = f"https://api.exchangerate.host/{d.strftime('%Y-%m-%d')}"
-        params = {"base": base, "symbols": ",".join(currencies)}
-        try:
-            resp = requests.get(url, params=params)
-            resp.raise_for_status()
-            data = resp.json()
-            if "rates" not in data:
-                print("Warning: no rates for", d)
-                continue
-            row = {c: data["rates"].get(c, np.nan) for c in currencies}
-            row["date"] = d
-            all_rates.append(row)
-        except Exception as e:
-            print("Error fetching for date", d, ":", e)
+    for cur, ticker in tickers.items():
+        if cur == base:
+            df_all[cur] = 1.0  # base currency always 1
+        else:
+            data = yf.download(ticker, start=start_date, end=end_date)['Adj Close']
+            data.name = cur
+            df_all = df_all.join(data, how='left')
 
-    df = pd.DataFrame(all_rates)
-    if df.empty:
-        raise RuntimeError("No FX data could be fetched")
-    df = df.set_index("date").sort_index()
-    return df
+    df_all = df_all.fillna(method='ffill')  # fill missing data
+    df_all = df_all.fillna(method='bfill')
+    return df_all
 
 # ---------------------------------------
 # GRAPH
@@ -147,12 +143,10 @@ def draw_flow(G, flow):
 if __name__ == "__main__":
     today = datetime.utcnow().date()
     start_date = today - timedelta(days=60)
-    end_date = today  # ensure no future dates
+    end_date = today
 
-    rates = fetch_rates_history(CURRENCIES, base="USD",
-                                start_date=start_date,
-                                end_date=end_date)
-
+    # fetch FX rates using Yahoo Finance
+    rates = fetch_rates_yahoo(base="USD", start_date=start_date, end_date=end_date)
     flows = compute_flows(rates)
 
     if flows.empty:
