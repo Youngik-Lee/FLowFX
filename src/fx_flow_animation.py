@@ -5,6 +5,7 @@ import imageio
 from fx_flow_model import build_country_graph, compute_flows
 from fx_utils import fetch_rates_yahoo, CURRENCIES  # import currencies and fetch function
 def draw_frame(G, flow, pos, filename):
+    
     plt.figure(figsize=(10,7))
     nx.draw_networkx_nodes(G,pos,node_size=1500,node_color=(flow-1),cmap="coolwarm")
     nx.draw_networkx_labels(G,pos)
