@@ -10,7 +10,7 @@ CURRENCIES = ["USD", "EUR", "JPY", "KRW", "GBP", "SGD", "HKD", "AUD"]
 DT = 1.0
 
 # ---------------------------------------
-# FX RATES API — historical data (keyless)
+# FX RATES — historical data (keyless)
 # ---------------------------------------
 def fetch_rates_history(currencies=CURRENCIES, base="USD",
                         start_date=None, end_date=None):
@@ -28,24 +28,19 @@ def fetch_rates_history(currencies=CURRENCIES, base="USD",
 
     for d in dates:
         url = f"https://api.exchangerate.host/{d.strftime('%Y-%m-%d')}"
-        params = {
-            "base": base,
-            "symbols": ",".join(currencies)
-        }
+        params = {"base": base, "symbols": ",".join(currencies)}
         try:
             resp = requests.get(url, params=params)
             resp.raise_for_status()
             data = resp.json()
             if "rates" not in data:
-                print("Warning: no rates for", d, data)
+                print("Warning: no rates for", d)
                 continue
-            rates = data["rates"]
-            row = {c: rates.get(c, np.nan) for c in currencies}
+            row = {c: data["rates"].get(c, np.nan) for c in currencies}
             row["date"] = d
             all_rates.append(row)
         except Exception as e:
             print("Error fetching for date", d, ":", e)
-            continue
 
     df = pd.DataFrame(all_rates)
     if df.empty:
@@ -148,9 +143,11 @@ def draw_flow(G, flow):
 # ---------------------------------------
 if __name__ == "__main__":
     # fetch past 60 days FX rates
-    rates = fetch_rates_history(CURRENCIES, base="USD",
-                                start_date=datetime.utcnow().date() - timedelta(days=60),
-                                end_date=datetime.utcnow().date())
+    rates = fetch_rates_history(
+        CURRENCIES, base="USD",
+        start_date=datetime.utcnow().date() - timedelta(days=60),
+        end_date=datetime.utcnow().date()
+    )
 
     flows = compute_flows(rates)
 
