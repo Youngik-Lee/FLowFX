@@ -6,3 +6,4 @@ scipy
 requests
 imageio
 imageio-ffmpeg
+yfinance
