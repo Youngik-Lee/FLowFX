@@ -2,7 +2,7 @@ acme==2.6.0
 annotated-types==0.7.0
 anyio==4.10.0
 attrs==20.3.0
-aws-cfn-bootstrap==2.0
+aws-cfn-bootstrap==1.4.post31
 awscli==2.25.0
 awscrt==0.23.8
 Babel==2.9.1
