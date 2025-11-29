@@ -4,12 +4,16 @@ from fx_utils import *
 from timeseries_tools import add_timeseries_features
 from covariance_model import compute_covariance, compute_correlation
 from alpha_model import compute_alpha_signals
-from regression_model import run_linear_regression  # will override for multi-output
-from ml_model import train_ml_model, predict_next_day
 from slippage import apply_slippage
 from scipy.optimize import minimize
+
+# -----------------------------
+# ML / Regression imports
+# -----------------------------
 from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.multioutput import MultiOutputRegressor
+
 import os
 
 OUTPUT_DIR = "output/model"
@@ -29,9 +33,9 @@ def save_summary_file(content: str):
     print(f"[Saved] {path}")
 
 def predict_with_confidence(model, X):
-    """ML prediction with mean and std across trees for confidence."""
+    """ML prediction with mean and std across trees for confidence (multi-output)."""
     preds = np.array([est.predict(X.values.reshape(1, -1)) for est in model.estimators_])
-    mean_pred = preds.mean(axis=0)   # multi-output mean
+    mean_pred = preds.mean(axis=0)
     std_pred = preds.std(axis=0)
     return mean_pred, std_pred
 
@@ -39,12 +43,10 @@ def predict_with_confidence(model, X):
 # Multi-output Linear Regression
 # -----------------------------
 def run_linear_regression_multi(X_df, y_df):
-    """
-    Fits multi-output linear regression to predict all currencies' dK/dt
-    """
     X = X_df.pct_change().fillna(0).values
     y = y_df.values
-    model = MultiOutputRegressor(LinearRegression()).fit(X, y)
+    model = MultiOutputRegressor(LinearRegression())
+    model.fit(X, y)
     coefs = np.array([est.coef_ for est in model.estimators_])
     intercepts = np.array([est.intercept_ for est in model.estimators_])
     return model, coefs, intercepts
@@ -53,9 +55,6 @@ def run_linear_regression_multi(X_df, y_df):
 # Multi-output ML (Random Forest)
 # -----------------------------
 def train_ml_model_multi(X_df, y_df):
-    """
-    Train multi-output random forest to predict dK/dt for all currencies
-    """
     X = X_df.pct_change().fillna(0).values
     y = y_df.values
     model = MultiOutputRegressor(RandomForestRegressor(n_estimators=100, random_state=42))
@@ -66,7 +65,6 @@ def train_ml_model_multi(X_df, y_df):
 # Navier-Stokes calibration
 # -----------------------------
 def calibrate_navier(K_last, combined_target, G):
-    """Optimize NS parameters to fit dK/dt targets."""
     _, _, _, A, L = calibrate(pd.DataFrame([K_last], columns=CURRENCIES), G)
 
     def loss(params):
@@ -119,7 +117,7 @@ if __name__ == "__main__":
     combined_target = apply_slippage(combined_target, volume=5_000_000)
 
     # --- NS simulation ---
-    G = build_country_graph(covariance=cov)  # optionally pass covariance for edge weights
+    G = build_country_graph(covariance=cov)
     nu, gamma, f, A, L = calibrate_navier(K_matrix.iloc[-1].values, combined_target, G)
     dK_pred = simulate_step(K_matrix.iloc[-1].values, A, L, nu, gamma, f*np.ones(len(CURRENCIES)))
     K_next = K_matrix.iloc[-1].values + dK_pred
@@ -144,3 +142,6 @@ if __name__ == "__main__":
 
     save_summary_file("\n".join(summary_lines))
     print("\n".join(summary_lines))
+
+    # --- optional visualization ---
+    # draw_flow(G, K_matrix.iloc[-1].values, dK_pred)
