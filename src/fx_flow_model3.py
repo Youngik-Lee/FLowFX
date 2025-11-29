@@ -4,10 +4,12 @@ from fx_utils import *
 from timeseries_tools import add_timeseries_features
 from covariance_model import compute_covariance, compute_correlation
 from alpha_model import compute_alpha_signals
-from regression_model import run_linear_regression
+from regression_model import run_linear_regression  # will override for multi-output
 from ml_model import train_ml_model, predict_next_day
 from slippage import apply_slippage
 from scipy.optimize import minimize
+from sklearn.linear_model import LinearRegression
+from sklearn.multioutput import MultiOutputRegressor
 import os
 
 OUTPUT_DIR = "output/model"
@@ -32,6 +34,20 @@ def predict_with_confidence(model, X):
     mean_pred = preds.mean(axis=0)   # multi-output mean
     std_pred = preds.std(axis=0)
     return mean_pred, std_pred
+
+# -----------------------------
+# Multi-output Linear Regression
+# -----------------------------
+def run_linear_regression_multi(X_df, y_df):
+    """
+    Fits multi-output linear regression to predict all currencies' dK/dt
+    """
+    X = X_df.pct_change().fillna(0).values
+    y = y_df.values
+    model = MultiOutputRegressor(LinearRegression()).fit(X, y)
+    coefs = np.array([est.coef_ for est in model.estimators_])
+    intercepts = np.array([est.intercept_ for est in model.estimators_])
+    return model, coefs, intercepts
 
 # -----------------------------
 # Navier-Stokes calibration
@@ -61,7 +77,7 @@ if __name__ == "__main__":
 
     # --- fetch FX rates ---
     rates = fetch_rates_yahoo(base="USD", start_date=start_date, end_date=end_date)
-    K_matrix = rates[CURRENCIES].copy()       # flows = FX rates
+    K_matrix = rates[CURRENCIES].copy()       # K = FX rates
     dK_dt = K_matrix.diff().fillna(0)         # flow speed
 
     # --- features and targets ---
@@ -75,7 +91,7 @@ if __name__ == "__main__":
     alpha_df = compute_alpha_signals(rates_ts)
 
     # --- regression & ML models ---
-    lin_model, coefs, intercept = run_linear_regression(K_features, dK_targets)  # multi-output
+    lin_model, coefs, intercepts = run_linear_regression_multi(K_features, dK_targets)
     ml_model = train_ml_model(K_features, dK_targets)
 
     # --- predict dK/dt for last day ---
