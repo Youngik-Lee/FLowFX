@@ -1,5 +1,0 @@
-ML next-day prediction:
-0.0
-
-After slippage:
--0.5002
