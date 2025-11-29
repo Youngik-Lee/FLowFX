@@ -36,16 +36,23 @@ def fetch_rates(base="USD", days=30):
 
     df = yf.download(tickers, start=start_date, end=end_date, progress=False)
 
-    # Handle multi-level
+    # Handle MultiIndex columns
     if isinstance(df.columns, pd.MultiIndex):
         if 'Adj Close' in df:
             df = df['Adj Close']
+        else:
+            df = df.xs('Adj Close', level=0, axis=1)
 
     if isinstance(df, pd.Series):
         df = df.to_frame()
 
     # Map tickers to currency codes
-    ticker_to_currency = {t: t.replace(f"{base}=X", "") for t in df.columns if t.endswith(f"{base}=X")}
+    ticker_to_currency = {}
+    for t in df.columns:
+        col_name = t[-1] if isinstance(t, tuple) else t
+        if col_name.endswith(f"{base}=X"):
+            ticker_to_currency[t] = col_name.replace(f"{base}=X", "")
+
     df = df.rename(columns=ticker_to_currency)
 
     # Keep only available currencies + USD
@@ -91,7 +98,6 @@ def draw_snapshot(G, rates, pos, filename, title="FX Flow Network"):
 
     today_prices = rates.iloc[-1]
     yesterday_prices = rates.iloc[-2]
-    usd_idx = CURRENCIES.index("USD")
 
     # Draw nodes as circles
     node_colors = np.abs(today_prices / yesterday_prices - 1)
