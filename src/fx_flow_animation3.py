@@ -1,5 +1,5 @@
 import os
-import requests
+import yfinance as yf
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
@@ -11,49 +11,67 @@ from matplotlib.patches import FancyArrowPatch
 # SETTINGS
 # -----------------------------
 CURRENCIES = ["USD", "EUR", "JPY", "KRW", "GBP", "SGD", "HKD", "AUD"]
+
+# Yahoo Finance Tickers for USD-based pairs (e.g., EURUSD=X is 1 EUR in USD)
+# The fetch function will convert this to USD in Foreign Currency (USD/X)
+TICKERS = {
+    "EUR": "EURUSD=X", "JPY": "JPY=X", "KRW": "KRW=X",
+    "GBP": "GBPUSD=X", "SGD": "SGDUSD=X", "HKD": "HKDUSD=X",
+    "AUD": "AUDUSD=X"
+}
+
 OUTPUT_DIR = "output/animation"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # -----------------------------
-# FETCH FX DATA
+# FETCH FX DATA (YFINANCE)
 # -----------------------------
-def fetch_rates(base="USD", currencies=CURRENCIES, days=2):
-    rates_list = []
-    for delta in range(days):
-        d = datetime.utcnow().date() - timedelta(days=delta)
-        url = f"https://api.exchangerate.host/{d.isoformat()}"
-        params = {"base": base, "symbols": ",".join(currencies)}
-        resp = requests.get(url, params=params)
-        try:
-            data = resp.json()
-        except Exception:
-            print(f"Skipping {d}: invalid JSON")
-            continue
-        if not data.get("success", True):
-            print(f"Skipping {d}: API returned success=False")
-            continue
-        rates = data.get("rates")
-        if not rates:
-            print(f"Skipping {d}: no rates returned")
-            continue
-        row = {c: rates.get(c, np.nan) for c in currencies}
-        row[base] = 1.0
-        row["date"] = d
-        rates_list.append(row)
-        print(f"Fetched rates for {d}: {row}")
+def fetch_rates_yfinance(base="USD", currencies=CURRENCIES, days=7):
+    """
+    Fetches historical FX rates using yfinance. It converts the yfinance rate 
+    (Foreign in USD) to the required rate (USD in Foreign Currency) via the reciprocal.
+    We fetch 7 days to ensure we get at least 2 business days of data.
+    """
+    # Determine the start and end dates
+    start_date = (datetime.utcnow().date() - timedelta(days=days)).isoformat()
+    end_date = datetime.utcnow().date().isoformat()
+    
+    ticker_list = list(TICKERS.values())
+    
+    # Download data from yfinance and take the closing price
+    data = yf.download(ticker_list, start=start_date, end=end_date, progress=False)['Close']
+    
+    if data.empty:
+        raise RuntimeError("No valid FX data returned from yfinance.")
 
-    if not rates_list:
-        raise RuntimeError("No valid FX data returned from API.")
+    df = pd.DataFrame(index=data.index)
 
-    df = pd.DataFrame(rates_list)
-    df = df.set_index("date").sort_index()
-    df = df[currencies]
+    # Convert Tickers back to Currency Names and apply the reciprocal
+    for currency, ticker in TICKERS.items():
+        if ticker in data.columns:
+            # Reciprocal: 1 / (Foreign_Currency in USD) = USD in Foreign_Currency
+            df[currency] = 1.0 / data[ticker]
+        else:
+            print(f"Warning: No data found for ticker {ticker}.")
+            
+    # Add the base currency (USD) which is always 1.0
+    df[base] = 1.0
+    
+    # Select and clean the data
+    df = df[[c for c in currencies if c in df.columns]].dropna()
+
+    # Need at least two days (today's rate and yesterday's rate)
+    if len(df) < 2:
+        raise RuntimeError(f"Yfinance returned only {len(df)} days of valid data. Need at least 2.")
+        
+    print(f"Successfully fetched {len(df)} days of rates.")
     return df
 
 # -----------------------------
 # CIRCLE LAYOUT
 # -----------------------------
 def circular_layout(nodes):
+    """Generates a circular layout for the network nodes."""
     n = len(nodes)
     pos = {}
     for i, node in enumerate(nodes):
@@ -65,6 +83,11 @@ def circular_layout(nodes):
 # DRAW SNAPSHOT
 # -----------------------------
 def draw_snapshot(G, rates, filename):
+    """Draws the currency flow network based on daily cross-rate changes."""
+    if len(rates) < 2:
+        print("Error: Not enough data points to calculate flow (need 2).")
+        return
+
     today_prices = rates.iloc[-1]
     yesterday_prices = rates.iloc[-2]
 
@@ -73,61 +96,85 @@ def draw_snapshot(G, rates, filename):
 
     pos = circular_layout(G.nodes())
 
-    # Compute all dK/dt
+    # Compute all dK/dt (Daily change in cross-rate K_u/v)
     arrow_edges = []
-    node_flow_sum = {c:0.0 for c in G.nodes()}
+    node_flow_sum = {c:0.0 for c in G.nodes()} # Measures total volatility for node sizing
 
     for u, v in G.edges():
+        # K_u/v: The cross-rate of u in terms of v (how many v for 1 u)
+        # Rates are USD/X (USD in X). Cross-rate is (USD/v) / (USD/u) = u/v (u in terms of v)
+        # This represents how many units of v you get for 1 unit of u.
         K_today = today_prices[u] / today_prices[v]
         K_yesterday = yesterday_prices[u] / yesterday_prices[v]
+        
+        # dK = K_today - K_yesterday (Change in the cross-rate K_u/v)
         dK = K_today - K_yesterday
-        if dK == 0:
+        
+        if abs(dK) < 1e-6:
             continue
+        
+        # Flow definition: Arrow points from the currency that lost value (start) 
+        # to the currency that gained value (end).
         if dK > 0:
+            # K_u/v increased (u got stronger, v got weaker)
+            # Flow is from the weaker currency (v) to the stronger currency (u)
             start, end = v, u
         else:
+            # K_u/v decreased (u got weaker, v got stronger)
+            # Flow is from the weaker currency (u) to the stronger currency (v)
             start, end = u, v
-        width = abs(dK) * 5  # scaling factor for visibility
+            
+        width = abs(dK) * 50  # Scaling factor for arrow thickness
         arrow_edges.append((start, end, width))
-        node_flow_sum[u] += dK
-        node_flow_sum[v] += dK
+        
+        # Aggregate flow for node sizing
+        node_flow_sum[u] += abs(dK)
+        node_flow_sum[v] += abs(dK)
 
-    # Draw nodes with size proportional to |sum(dK/dt)|
-    node_sizes = [50 + 2000 * abs(node_flow_sum[c]) for c in G.nodes()]
-    nx.draw_networkx_nodes(G, pos, node_size=node_sizes, node_color="skyblue")
+    # Draw nodes with size proportional to volatility
+    node_sizes = [500 + 10000 * abs(node_flow_sum[c]) for c in G.nodes()]
+    nx.draw_networkx_nodes(G, pos, node_size=node_sizes, node_color="skyblue", alpha=0.9, edgecolors='k')
     nx.draw_networkx_labels(G, pos, font_size=12, font_weight="bold")
 
-    # Draw arrows
+    # Draw arrows using FancyArrowPatch for curved, weighted arrows
     for u, v, width in arrow_edges:
         x1, y1 = pos[u]
         x2, y2 = pos[v]
         arrow = FancyArrowPatch((x1, y1), (x2, y2),
                                 arrowstyle='-|>',
-                                color='gray',
+                                color='darkred',
                                 linewidth=width,
                                 mutation_scale=10 + width*2,
-                                connectionstyle="arc3,rad=0.1")
+                                connectionstyle="arc3,rad=0.1",
+                                zorder=2)
         ax.add_patch(arrow)
 
     timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    plt.title(f"FX Flow Network ({timestamp} UTC)")
+    plt.title(f"FX Flow Network (Data Date: {rates.index[-1].strftime('%Y-%m-%d')})")
     plt.axis("off")
     plt.savefig(filename, dpi=150, bbox_inches="tight")
     plt.close()
     print(f"Saved snapshot: {filename}")
 
 # -----------------------------
-# MAIN
+# MAIN EXECUTION
 # -----------------------------
 if __name__ == "__main__":
+    # 1. Initialize the complete graph (all currencies connected)
     G = nx.Graph()
     for c in CURRENCIES:
         G.add_node(c)
-    # Connect all currencies to each other
     for i, c1 in enumerate(CURRENCIES):
         for c2 in CURRENCIES[i+1:]:
             G.add_edge(c1, c2)
 
-    rates = fetch_rates(base="USD", currencies=CURRENCIES, days=2)
-    fname = os.path.join(OUTPUT_DIR, f"fx_flow_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.png")
-    draw_snapshot(G, rates, fname)
+    try:
+        # 2. Fetch the rates
+        rates = fetch_rates_yfinance(base="USD", currencies=CURRENCIES, days=7)
+
+        # 3. Draw the resulting snapshot
+        fname = os.path.join(OUTPUT_DIR, f"fx_flow_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.png")
+        draw_snapshot(G, rates, fname)
+
+    except RuntimeError as e:
+        print(f"FATAL ERROR: {e}")
