@@ -123,15 +123,27 @@ def draw_snapshot(G, rates, filename):
         node_flow_sum[v] += abs(dK)
 
     # ----------------------------------------
-    # FIXED: Logarithmic Scaling for Node Size
+    # FIXED: Hybrid Logarithmic + Normalized Scaling for Node Size
+    # Ensures nodes scale logarithmically, but the largest is capped.
     # ----------------------------------------
-    # Use Logarithmic Scale to compress large differences in volatility
-    BASE_SIZE = 400
-    SCALE_FACTOR = 150
-    # Add a small value (1e-6) before scaling to prevent np.log(0) and ensure small nodes are visible
-    log_flows = [np.log(1 + abs(node_flow_sum[c] * 1e5)) for c in G.nodes()] 
+    MIN_SIZE = 300  # Smallest possible node size
+    MAX_SIZE = 3000 # Largest allowed node size
+    LOG_MULTIPLIER = 1e5 # Sensitivity factor for the log calculation
+
+    # 1. Apply Logarithmic Scaling
+    log_flows = [np.log(1 + abs(node_flow_sum[c]) * LOG_MULTIPLIER) for c in G.nodes()] 
     
-    node_sizes = [BASE_SIZE + SCALE_FACTOR * flow for flow in log_flows]
+    # 2. Normalize the Logarithmic values to the range [0, 1]
+    max_log_flow = max(log_flows)
+    
+    if max_log_flow < 1e-6: # Handle case where all volatility is near zero
+        normalized_log_flows = [0.0] * len(G.nodes())
+    else:
+        normalized_log_flows = [flow / max_log_flow for flow in log_flows]
+        
+    # 3. Scale the normalized flow to the desired range [MIN_SIZE, MAX_SIZE]
+    range_size = MAX_SIZE - MIN_SIZE
+    node_sizes = [MIN_SIZE + range_size * flow for flow in normalized_log_flows]
     # ----------------------------------------
 
     # Draw nodes
