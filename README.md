@@ -10,23 +10,6 @@ The core approach is to model the change in currency rates (relative to USD) as 
 
 The prediction system is a hybrid model where **Machine Learning (ML)** provides the external force input to the **Navier-Stokes (NS) primary engine**.
 
-**Data Flow**
-* **FX Data (Yahoo Finance)** -> **Time Series Features/Stats**
-* **Time Series Features** feeds:
-    * **Covariance Matrix**
-    * **Alpha Factors**
-    * **Regression Model**
-    * **ML Model**
-* **Alpha, Regression, and ML Models** combine into the **Combined External Forcing (f)**
-* **Combined External Forcing (f)** -> **Navier-Stokes Network Engine** (Primary Model)
-* **Navier-Stokes Network Engine** -> **Slippage Model**
-* **Slippage Model** -> **Final 1-Day Flow Prediction**
-* **Final Prediction** -> **Flow Visualization**
-
-The **Combined External Forcing** (f) is a **weighted average** of the auxiliary models, injected into the NS simulation:
-
-**f = 0.5 * ML_pred + 0.3 * Reg_pred + 0.2 * alpha_pred**
-
 ```
 FX Data (Yahoo)
       ↓
@@ -47,22 +30,33 @@ Slippage Model  → adjusts final output
 Flow Visualization (network arrows)
 ```
 
+**Data Flow**
+* **FX Data (Yahoo Finance)** -> **Time Series Features/Stats**
+* **Time Series Features** feeds:
+    * **Covariance Matrix**
+    * **Alpha Factors**
+    * **Regression Model**
+    * **ML Model**
+* **Alpha, Regression, and ML Models** combine into the **Combined External Forcing (f)**
+* **Combined External Forcing (f)** -> **Navier-Stokes Network Engine** (Primary Model)
+* **Navier-Stokes Network Engine** -> **Slippage Model**
+* **Slippage Model** -> **Final 1-Day Flow Prediction**
+* **Final Prediction** -> **Flow Visualization**
+
+The **Combined External Forcing** (f) is a **weighted average** of the auxiliary models, injected into the NS simulation:
+
+**f = 0.5 * ML_pred + 0.3 * Reg_pred + 0.2 * alpha_pred**
+
+
+
 ## ✨ Features
 
 * **Data Source:** Fetches live FX rates (e.g., USD/EUR, USD/JPY) from **Yahoo Finance**.
 * **Network Dynamics:** Models currency flows using a **Navier–Stokes (NS) equation analogy** on a country/currency network.
-* **NS Calibration:** Calibrates two key parameters: **Viscosity (nu)** and **Friction (gamma)** using optimization (scipy.optimize.minimize).
+* **NS Calibration:** Calibrates two key parameters: viscosity (`nu`) and slippage/friction (`gamma`) calibration using optimization (scipy.optimize.minimize).
 * **Hybrid Prediction:** Uses **Random Forest (ML)**, **Linear Regression**, and proprietary **Alpha Signals** to compute the external forcing term for the NS model.
 * **Output:** Provides 1-day flow prediction for each currency pair.
 * **Visualization:** Generates static and animated visualizations of the flow network (arrow thickness = flow magnitude).
-
-- Fetch live FX rates from exchangerate.host
-- Compute per-currency flow index (today / yesterday)
-- Build a country/currency network and compute directed flows (lower→higher)
-- Navier–Stokes inspired model with viscosity (`nu`) and slippage/friction (`gamma`) calibration
-- 1-day prediction for each currency's flow
-- Static and animated visualizations (arrow thickness = flow magnitude)
-- Dockerfile for easy deployment
 
 
 ## 🚀 How It Works
@@ -129,64 +123,3 @@ python3 src/fx_flow_model.py
 ```
 python3 src/fx_flow_animation.py
 ```
-
-
-
-
-
-## Features
-
-
-## Quick start
-
-1. Clone the repo:
-
-```bash
-git clone https://github.com/Youngik-Lee/FLowFX.git
-cd FLowFX
-```
-
-## 📁 Repository Structure
-
-```
-FlowFX/
-│── README.md
-│── requirements.txt
-│── Dockerfile
-│── src/
-│    ├── fx_flow_model.py
-│    ├── fx_flow_animation.py
-│    ├── alpha_model.py
-│    ├── covariance_model.py
-│    ├── regression_model.py
-│    ├── ml_model.py
-│    ├── slippage.py
-│    ├── timeseries_tools.py
-│── data/
-│    ├── sample_fx_data.csv      
-│── output/
-│── figures/
-
-```
-
-
-## 🚀 How It Works
-
-### 1) Compute flow index  
-```
-flow[c] = today_rate[c] / yesterday_rate[c]
-```
-
-### 2) Flow direction rule  
-```
-Arrow from lower flow → higher flow  
-Magnitude = |flow_high - flow_low|
-```
-
-### 3) Navier–Stokes style prediction  
-```
-u_next = u - (u * (A_norm @ u)) + nu * L u - gamma u + forcing
-```
-
-### 4) Animate result  
-Animated country flow changes over time.
