@@ -314,26 +314,3 @@ if __name__ == "__main__":
             f.write(f"{name}: {value:.6f}\n")
         f.write("========================================\n")
     print(f"Saved metrics → {metrics_path}")
-
-    # === Save Predictions vs Actual PNG for EUR (example) ===
-    try:
-        currency = "EUR"
-        cur_data = full_results[full_results['Currency'] == currency].set_index('Date')
-
-        plt.figure(figsize=(12, 6))
-        plt.plot(cur_data.index, cur_data['Actual_dK_dt'], label='Actual dK/dt', alpha=0.7)
-        plt.plot(cur_data.index, cur_data['Predicted_dK_dt'], label='Predicted dK/dt', linestyle='--')
-
-        plt.title(f'Actual vs. Predicted Rate Changes for {currency}')
-        plt.xlabel('Date')
-        plt.ylabel('Rate Change (dK/dt)')
-        plt.legend()
-        plt.grid(True)
-
-        png_path = os.path.join(output_dir, f"{currency}_backtest_plot.png")
-        plt.savefig(png_path, dpi=200)
-        plt.close()
-        print(f"Saved PNG plot → {png_path}")
-
-    except Exception as e:
-        print("Could not save plot:", e)
