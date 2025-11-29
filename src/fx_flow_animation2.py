@@ -43,7 +43,7 @@ def fetch_rates(days=30):
         else:
             df = df.iloc[:, :len(tickers)]
 
-    # Rename columns to currency pairs like USDEUR -> EUR
+    # Rename columns to currency codes like USDEUR=X -> EUR
     new_cols = {}
     for t in df.columns:
         if isinstance(t, str) and t.startswith("USD") and t.endswith("=X"):
@@ -101,8 +101,9 @@ def draw_snapshot(G, rates, pos, filename, title="FX Flow Network"):
         if u not in rates.columns or v not in rates.columns:
             continue
 
-        K_today = today_prices[u] / today_prices[v]
-        K_yesterday = yesterday_prices[u] / yesterday_prices[v]
+        # Convert to scalar float to avoid Series issues
+        K_today = float(today_prices[u] / today_prices[v])
+        K_yesterday = float(yesterday_prices[u] / yesterday_prices[v])
         dK = K_today - K_yesterday
 
         if dK == 0:
@@ -118,10 +119,12 @@ def draw_snapshot(G, rates, pos, filename, title="FX Flow Network"):
     max_weight = max(abs(w) for w in node_weights.values()) + 1e-8
     node_sizes = [800 + 2000 * (abs(node_weights[n]) / max_weight) for n in G.nodes()]
 
+    # Draw nodes
     nx.draw_networkx_nodes(G, pos, node_size=node_sizes,
                            node_color='skyblue', edgecolors='black')
     nx.draw_networkx_labels(G, pos, font_size=12, font_weight="bold")
 
+    # Draw arrows
     for (start, end), weight in dK_dict.items():
         x1, y1 = pos[start]
         x2, y2 = pos[end]
