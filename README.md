@@ -27,7 +27,25 @@ The **Combined External Forcing** (f) is a **weighted average** of the auxiliary
 
 **f = 0.5 * ML_pred + 0.3 * Reg_pred + 0.2 * alpha_pred**
 
-
+```
+FX Data (Yahoo)
+      ↓
+Time Series Stats (vol, MA)
+      ↓
+Covariance Matrix
+      ↓
+Alpha Factors  → modifies forcing term
+      ↓
+Regression Model → auxiliary predictor
+      ↓
+ML Model → auxiliary predictor
+      ↓
+Navier–Stokes Simulation (primary engine)
+      ↓
+Slippage Model  → adjusts final output
+      ↓
+Flow Visualization (network arrows)
+```
 
 ## ✨ Features
 
@@ -38,6 +56,13 @@ The **Combined External Forcing** (f) is a **weighted average** of the auxiliary
 * **Output:** Provides 1-day flow prediction for each currency pair.
 * **Visualization:** Generates static and animated visualizations of the flow network (arrow thickness = flow magnitude).
 
+- Fetch live FX rates from exchangerate.host
+- Compute per-currency flow index (today / yesterday)
+- Build a country/currency network and compute directed flows (lower→higher)
+- Navier–Stokes inspired model with viscosity (`nu`) and slippage/friction (`gamma`) calibration
+- 1-day prediction for each currency's flow
+- Static and animated visualizations (arrow thickness = flow magnitude)
+- Dockerfile for easy deployment
 
 
 ## 🚀 How It Works
@@ -84,16 +109,23 @@ FLowFX/
 ```
 
 ## 📦 Installation & Run
+1. Clone the repo:
+```bash
+git clone https://github.com/Youngik-Lee/FLowFX.git
+cd FLowFX
+```
 
-Installation
+2. Installation
 ```
 pip install -r requirements.txt
 ```
-Run Model (Prediction)
+
+3. Run Model (Prediction)
 ```
 python3 src/fx_flow_model.py
 ```
-Run Animation
+
+4. Run Animation
 ```
 python3 src/fx_flow_animation.py
 ```
@@ -101,36 +133,9 @@ python3 src/fx_flow_animation.py
 
 
 
-## Architecture
-```
-FX Data (Yahoo)
-      ↓
-Time Series Stats (vol, MA)
-      ↓
-Covariance Matrix
-      ↓
-Alpha Factors  → modifies forcing term
-      ↓
-Regression Model → auxiliary predictor
-      ↓
-ML Model → auxiliary predictor
-      ↓
-Navier–Stokes Simulation (primary engine)
-      ↓
-Slippage Model  → adjusts final output
-      ↓
-Flow Visualization (network arrows)
-```
 
 ## Features
 
-- Fetch live FX rates from exchangerate.host
-- Compute per-currency flow index (today / yesterday)
-- Build a country/currency network and compute directed flows (lower→higher)
-- Navier–Stokes inspired model with viscosity (`nu`) and slippage/friction (`gamma`) calibration
-- 1-day prediction for each currency's flow
-- Static and animated visualizations (arrow thickness = flow magnitude)
-- Dockerfile for easy deployment
 
 ## Quick start
 
@@ -185,22 +190,3 @@ u_next = u - (u * (A_norm @ u)) + nu * L u - gamma u + forcing
 
 ### 4) Animate result  
 Animated country flow changes over time.
-
-
-## 📦 Installation
-
-```
-pip install -r requirements.txt
-```
-
-## ▶ Run Model
-
-```
-python3 src/fx_flow_model.py
-```
-
-## ▶ Run Animation
-
-```
-python3 src/fx_flow_animation.py
-```
