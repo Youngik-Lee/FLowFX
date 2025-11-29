@@ -124,10 +124,10 @@ def draw_snapshot(G, rates, filename):
 
     # ----------------------------------------
     # FIXED: Hybrid Logarithmic + Normalized Scaling for Node Size
-    # Ensures nodes scale logarithmically, but the largest is capped.
+    # MAX_SIZE has been reduced to 1800.
     # ----------------------------------------
-    MIN_SIZE = 300  # Smallest possible node size
-    MAX_SIZE = 3000 # Largest allowed node size
+    MIN_SIZE = 300   # Smallest possible node size
+    MAX_SIZE = 1800  # Largest allowed node size (Adjusted to be smaller)
     LOG_MULTIPLIER = 1e5 # Sensitivity factor for the log calculation
 
     # 1. Apply Logarithmic Scaling
