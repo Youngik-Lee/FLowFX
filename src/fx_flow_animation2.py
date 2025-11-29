@@ -30,23 +30,23 @@ def fixed_layout():
 # Fetch FX prices vs USD
 # -----------------------------
 def fetch_rates(base="USD", days=30):
-    """Fetch FX prices vs USD for the last 'days' days"""
     end_date = datetime.utcnow().date()
     start_date = end_date - timedelta(days=days)
     tickers = [f"{c}{base}=X" for c in CURRENCIES if c != base]
 
-    df = yf.download(tickers, start=start_date, end=end_date, progress=False)
-    if 'Adj Close' in df:
-        df = df['Adj Close']
-    if isinstance(df, pd.Series):
-        df = df.to_frame()
+    df = yf.download(tickers, start=start_date, end=end_date, progress=False)['Adj Close']
 
-    df[base] = 1.0  # USD = 1
-    for c in CURRENCIES:
-        if c not in df.columns:
-            df[c] = np.nan
+    # Rename columns: EURUSD=X -> EUR, JPYUSD=X -> JPY
+    df.columns = [c for c in CURRENCIES if c != base]
 
-    df = df[CURRENCIES].ffill().bfill()  # fill missing prices
+    # Add USD column
+    df[base] = 1.0
+
+    # Reorder columns
+    df = df[CURRENCIES]
+
+    # Fill missing data
+    df = df.ffill().bfill()
     return df
 
 # -----------------------------
@@ -80,7 +80,7 @@ def draw_snapshot(G, rates, pos, filename, title="FX Flow Network"):
     yesterday_prices = rates.iloc[-2]
     usd_idx = CURRENCIES.index("USD")
 
-    # Draw nodes
+    # Draw nodes as circles
     node_colors = np.abs(today_prices / yesterday_prices - 1)
     norm_colors = node_colors / (np.nanmax(node_colors) + 1e-8)
     nx.draw_networkx_nodes(G, pos, node_size=1500,
@@ -88,12 +88,12 @@ def draw_snapshot(G, rates, pos, filename, title="FX Flow Network"):
                            edgecolors='black')
     nx.draw_networkx_labels(G, pos, font_size=12, font_weight="bold")
 
-    # Draw arrows
+    # Draw arrows based on dK/dt rule
     for u, v in G.edges():
         idx_u = CURRENCIES.index(u)
         idx_v = CURRENCIES.index(v)
 
-        # Skip edge if a currency is NaN
+        # Skip edge if currency price is NaN
         if np.isnan(today_prices[idx_u]) or np.isnan(today_prices[idx_v]) \
            or np.isnan(yesterday_prices[idx_u]) or np.isnan(yesterday_prices[idx_v]):
             continue
