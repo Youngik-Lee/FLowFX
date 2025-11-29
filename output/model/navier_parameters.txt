@@ -1,0 +1,5 @@
+NAVIER SYSTEM PARAMETERS
+nu: 0.0
+gamma: 0.0
+f: 0.5
+------------------------------
