@@ -36,7 +36,7 @@ def fetch_rates(base="USD", days=30):
 
     df = yf.download(tickers, start=start_date, end=end_date, progress=False)
 
-    # Handle both multi-level and single-level DataFrame
+    # Handle multi-level DataFrame (new yfinance)
     if isinstance(df.columns, pd.MultiIndex):
         if 'Adj Close' in df:
             df = df['Adj Close']
@@ -44,14 +44,15 @@ def fetch_rates(base="USD", days=30):
     if isinstance(df, pd.Series):
         df = df.to_frame()
 
-    # Rename columns: EURUSD=X -> EUR, JPYUSD=X -> JPY
-    df.columns = [c for c in CURRENCIES if c != base]
+    # Map tickers to currency codes safely
+    ticker_to_currency = {f"{c}{base}=X": c for c in CURRENCIES if c != base}
+    df = df.rename(columns={t: ticker_to_currency[t] for t in df.columns if t in ticker_to_currency})
 
     # Add USD column
     df[base] = 1.0
 
-    # Reorder columns
-    df = df[CURRENCIES]
+    # Reorder columns according to CURRENCIES
+    df = df[[c for c in CURRENCIES]]
 
     # Fill missing data
     df = df.ffill().bfill()
@@ -101,7 +102,7 @@ def draw_snapshot(G, rates, pos, filename, title="FX Flow Network"):
         idx_u = CURRENCIES.index(u)
         idx_v = CURRENCIES.index(v)
 
-        # Skip edge if currency price is NaN
+        # Skip edge if any price is NaN
         if np.isnan(today_prices[idx_u]) or np.isnan(today_prices[idx_v]) \
            or np.isnan(yesterday_prices[idx_u]) or np.isnan(yesterday_prices[idx_v]):
             continue
