@@ -29,7 +29,8 @@ def fixed_layout():
 # -----------------------------
 # Fetch FX prices vs USD
 # -----------------------------
-def fetch_rates(base="USD", days=20):
+def fetch_rates(base="USD", days=30):
+    """Fetch FX prices vs USD for the last 'days' days"""
     end_date = datetime.utcnow().date()
     start_date = end_date - timedelta(days=days)
     tickers = [f"{c}{base}=X" for c in CURRENCIES if c != base]
@@ -44,7 +45,9 @@ def fetch_rates(base="USD", days=20):
     for c in CURRENCIES:
         if c not in df.columns:
             df[c] = np.nan
-    df = df[CURRENCIES].ffill().bfill().dropna()
+
+    # fill missing data but keep all rows
+    df = df[CURRENCIES].ffill().bfill()
     return df
 
 # -----------------------------
@@ -77,7 +80,7 @@ def draw_snapshot(G, rates, pos, filename, title="FX Flow Network"):
     today_prices = rates.iloc[-1].values
     yesterday_prices = rates.iloc[-2].values
 
-    # Draw nodes
+    # Draw nodes as circles
     node_colors = np.abs(today_prices / yesterday_prices - 1)
     norm_colors = node_colors / (np.max(node_colors) + 1e-8)
     nx.draw_networkx_nodes(G, pos, node_size=1500,
@@ -85,10 +88,15 @@ def draw_snapshot(G, rates, pos, filename, title="FX Flow Network"):
                            edgecolors='black')
     nx.draw_networkx_labels(G, pos, font_size=12, font_weight="bold")
 
-    # Draw arrows according to dK/dt rule
+    # Draw arrows based on dK/dt rule
     for u, v in G.edges():
         idx_u = CURRENCIES.index(u)
         idx_v = CURRENCIES.index(v)
+
+        # Skip if any price is NaN
+        if np.isnan(today_prices[idx_u]) or np.isnan(today_prices[idx_v]) \
+           or np.isnan(yesterday_prices[idx_u]) or np.isnan(yesterday_prices[idx_v]):
+            continue
 
         K_today = today_prices[idx_u] / today_prices[idx_v]
         K_yesterday = yesterday_prices[idx_u] / yesterday_prices[idx_v]
@@ -100,6 +108,7 @@ def draw_snapshot(G, rates, pos, filename, title="FX Flow Network"):
         start, end = (u, v) if dK < 0 else (v, u)
         weight = abs(dK)
 
+        # scale arrow thickness and size
         linewidth = max(2, 15 * weight)
         mutation_scale = 15 + 30 * weight
 
@@ -125,7 +134,7 @@ if __name__ == "__main__":
     G = build_country_graph()
     pos = fixed_layout()
 
-    rates = fetch_rates(base="USD", days=20)
+    rates = fetch_rates(base="USD", days=30)
     if len(rates) < 2:
         raise RuntimeError("Not enough valid FX data returned.")
 
