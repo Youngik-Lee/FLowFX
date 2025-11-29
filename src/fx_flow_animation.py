@@ -66,7 +66,7 @@ def circular_layout(nodes):
     return pos
 
 # -----------------------------
-# DRAW SNAPSHOT
+# DRAW SNAPSHOT (MIDPOINT ARROWS)
 # -----------------------------
 def draw_snapshot(G, rates, filename):
     if len(rates) < 2:
@@ -80,23 +80,34 @@ def draw_snapshot(G, rates, filename):
     ax = plt.gca()
 
     pos = circular_layout(G.nodes())
-    arrow_edges = []
     node_flow_sum = {c:0.0 for c in G.nodes()}
 
+    # Prepare edge arrows
+    arrows = []
     for u, v in G.edges():
         K_today = today_prices[u] / today_prices[v]
         K_yesterday = yesterday_prices[u] / yesterday_prices[v]
         dK = K_today - K_yesterday
         if abs(dK) < 1e-6:
             continue
-        
-        start, end = (v, u) if dK > 0 else (u, v)
 
-        # Arrow width: minimum 0.5, max 3
-        width = max(min(abs(dK)*5, 3), 0.5)
-        arrow_edges.append((start, end, width))
+        # Determine direction: u -> v if dK > 0
+        start, end = (v, u) if dK > 0 else (u, v)
         node_flow_sum[u] += abs(dK)
         node_flow_sum[v] += abs(dK)
+
+        # Midpoint coordinates
+        x1, y1 = pos[start]
+        x2, y2 = pos[end]
+        xm, ym = (x1 + x2)/2, (y1 + y2)/2
+
+        # Short arrow length (10% of edge length)
+        sx, sy = (x2 - x1)*0.1, (y2 - y1)*0.1
+
+        # Arrow width scaling
+        width = max(min(abs(dK)*5, 3), 0.5)
+
+        arrows.append((xm - sx, ym - sy, xm + sx, ym + sy, width))
 
     # Node size scaling
     BASE_SIZE = 300
@@ -107,31 +118,16 @@ def draw_snapshot(G, rates, filename):
     nx.draw_networkx_nodes(G, pos, node_size=node_sizes, node_color="skyblue", alpha=0.9, edgecolors='k')
     nx.draw_networkx_labels(G, pos, font_size=12, font_weight="bold")
 
-    # Draw arrows with midpoint arrowheads
-    for u, v, width in arrow_edges:
-        x1, y1 = pos[u]
-        x2, y2 = pos[v]
-
-        # Full arrow (end arrowhead)
-        arrow = FancyArrowPatch((x1, y1), (x2, y2),
+    # Draw midpoint arrows
+    for x_start, y_start, x_end, y_end, width in arrows:
+        arrow = FancyArrowPatch((x_start, y_start), (x_end, y_end),
                                 arrowstyle='-|>',
                                 color='darkred',
                                 linewidth=width,
-                                mutation_scale=8 + width*2,
-                                connectionstyle="arc3,rad=0.1",
-                                zorder=2)
+                                mutation_scale=6 + width*2,
+                                connectionstyle="arc3,rad=0.0",
+                                zorder=3)
         ax.add_patch(arrow)
-
-        # Midpoint arrow for direction
-        xm, ym = (x1 + x2)/2, (y1 + y2)/2
-        arrow_mid = FancyArrowPatch((x1, y1), (xm, ym),
-                                    arrowstyle='-|>',
-                                    color='darkred',
-                                    linewidth=width*0.8,
-                                    mutation_scale=6 + width*2,
-                                    connectionstyle="arc3,rad=0.1",
-                                    zorder=3)
-        ax.add_patch(arrow_mid)
 
     plt.title(f"FX Flow Network (Data Date: {rates.index[-1].strftime('%Y-%m-%d')})")
     plt.axis("off")
