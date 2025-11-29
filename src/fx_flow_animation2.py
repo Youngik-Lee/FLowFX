@@ -2,6 +2,7 @@ import os
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
+import pandas as pd
 import yfinance as yf
 from datetime import datetime, timedelta
 from matplotlib.patches import FancyArrowPatch
