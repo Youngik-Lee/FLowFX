@@ -74,12 +74,14 @@ def train_ml_model_multi(X_df, y_df):
 # Navier-Stokes calibration
 # -----------------------------
 def calibrate_navier(K_last, combined_target, G):
-    # G is the constructed graph
+    # K_last has 8 elements (all currencies)
+    # combined_target is expected to have 8 elements (all currencies)
     _, _, _, A, L = calibrate(pd.DataFrame([K_last], columns=CURRENCIES), G)
 
     def loss(params):
         nu, gamma, f = params
         dK_pred = simulate_step(K_last, A, L, nu, gamma, f*np.ones(len(K_last)))
+        # dK_pred should have 8 elements. combined_target should also have 8 elements here.
         return np.sum((dK_pred - combined_target)**2)
 
     init = [0.1, 0.1, 0.5]
@@ -103,7 +105,6 @@ if __name__ == "__main__":
 
     # --- features and targets ---
     K_features = K_matrix.shift(1).dropna()
-    # Drop "USD" target for consistent 7-target prediction
     dK_targets_non_usd = dK_dt.iloc[1:].drop(columns=["USD"], errors='ignore')
 
     # --- time series & quant features ---
@@ -130,7 +131,9 @@ if __name__ == "__main__":
     # Use .values to remove feature names and suppress UserWarning
     reg_pred = lin_model.predict(X_last_row_df.values)[0] 
     
-    alpha_pred_non_usd = alpha_df.iloc[-1].drop(labels=["USD"], errors='ignore').values 
+    # FIX: Slice the alpha_df output to ensure it matches the 7 non-USD currency predictions.
+    # We assume the first 7 elements of the last row are the relevant signals.
+    alpha_pred_non_usd = alpha_df.iloc[-1].values[:7] 
     
     # combined_target is size 7 (non-USD currencies)
     combined_target = 0.5*ml_mean + 0.3*reg_pred.mean() + 0.2*alpha_pred_non_usd
@@ -141,9 +144,9 @@ if __name__ == "__main__":
     combined_target_full = np.insert(combined_target, CURRENCIES.index("USD"), 0)
     K_last_full = K_matrix.iloc[-1].values 
     
-    # FINAL FIX: Call build_country_graph() with NO arguments
     G = build_country_graph()
     
+    # The error was here, ensure combined_target_full is shape (8,)
     nu, gamma, f, A, L = calibrate_navier(K_last_full, combined_target_full, G)
     dK_pred = simulate_step(K_last_full, A, L, nu, gamma, f*np.ones(len(CURRENCIES)))
     K_next = K_last_full + dK_pred
