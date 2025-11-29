@@ -34,7 +34,15 @@ def fetch_rates(base="USD", days=30):
     start_date = end_date - timedelta(days=days)
     tickers = [f"{c}{base}=X" for c in CURRENCIES if c != base]
 
-    df = yf.download(tickers, start=start_date, end=end_date, progress=False)['Adj Close']
+    df = yf.download(tickers, start=start_date, end=end_date, progress=False)
+
+    # Handle both multi-level and single-level DataFrame
+    if isinstance(df.columns, pd.MultiIndex):
+        if 'Adj Close' in df:
+            df = df['Adj Close']
+
+    if isinstance(df, pd.Series):
+        df = df.to_frame()
 
     # Rename columns: EURUSD=X -> EUR, JPYUSD=X -> JPY
     df.columns = [c for c in CURRENCIES if c != base]
