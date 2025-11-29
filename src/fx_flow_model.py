@@ -1,4 +1,4 @@
-import numpy as np
+7import numpy as np
 import pandas as pd
 from fx_utils import *
 from timeseries_tools import add_timeseries_features
@@ -68,13 +68,15 @@ if __name__ == "__main__":
 
     last = flows.iloc[-1].values
     pred = simulate_step(last, A, L, nu, gamma, f*np.ones(len(CURRENCIES)))
-
-    print("\nPREDICTION:")
-    print(pd.DataFrame({
+       
+    pred_df = pd.DataFrame({
         "currency": CURRENCIES,
         "flow_today": last,
         "flow_pred": pred,
         "pred_%": (pred - 1) * 100
-    }))
+    })       
+    print("\nPREDICTION:")
+    print(pred_df)
     save_text("flow_prediction.txt", pred_df.to_string(index=False))
+  
     draw_flow(G, last)
