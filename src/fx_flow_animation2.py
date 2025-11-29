@@ -30,9 +30,6 @@ def fixed_layout():
 # Fetch last 2 trading days of FX rates
 # -----------------------------
 def fetch_rates(base="USD", days=5):
-    """
-    Fetch the last few days to ensure we have 2 valid trading days.
-    """
     end_date = datetime.utcnow().date()
     start_date = end_date - timedelta(days=days)
     tickers = [f"{c}{base}=X" for c in CURRENCIES if c != base]
@@ -69,7 +66,7 @@ def build_country_graph():
     return G
 
 # -----------------------------
-# Draw FX snapshot
+# Draw snapshot with dK/dt rule
 # -----------------------------
 def draw_snapshot(G, rates, pos, filename, title="FX Flow Network"):
     plt.figure(figsize=(10, 7))
@@ -80,36 +77,33 @@ def draw_snapshot(G, rates, pos, filename, title="FX Flow Network"):
 
     today_prices = rates.iloc[-1].values
     yesterday_prices = rates.iloc[-2].values
-    ratios = today_prices / yesterday_prices
 
-    # DEBUG: print data
-    print("=== FX Data ===")
-    print(rates.iloc[-2:])
-    print("Ratios today/yesterday:", ratios)
-
-    # Draw nodes
-    node_colors = np.abs(ratios - 1)
+    # Draw nodes as circles
+    node_colors = np.abs(today_prices / yesterday_prices - 1)
     norm_colors = node_colors / (np.max(node_colors) + 1e-8)
     nx.draw_networkx_nodes(G, pos, node_size=1500,
                            node_color=norm_colors, cmap="coolwarm",
                            edgecolors='black')
     nx.draw_networkx_labels(G, pos, font_size=12, font_weight="bold")
 
-    # Determine max difference for scaling
-    max_diff = max(abs(ratios[CURRENCIES.index(u)] - ratios[CURRENCIES.index(v)])
-                   for u, v in G.edges()) + 1e-8
-
-    # Draw arrows for all edges
+    # Draw arrows based on dK/dt
     for u, v in G.edges():
-        r_u = ratios[CURRENCIES.index(u)]
-        r_v = ratios[CURRENCIES.index(v)]
+        idx_u = CURRENCIES.index(u)
+        idx_v = CURRENCIES.index(v)
 
-        start, end = (u, v) if r_u < r_v else (v, u)
-        weight = abs(r_v - r_u)
+        K_today = today_prices[idx_u] / today_prices[idx_v]
+        K_yesterday = yesterday_prices[idx_u] / yesterday_prices[idx_v]
+        dK = K_today - K_yesterday
 
-        # Scale arrows for visibility
-        linewidth = max(2, 8 * weight / max_diff)
-        mutation_scale = 15 + 25 * weight / max_diff
+        if dK == 0:
+            continue  # no arrow
+
+        start, end = (u, v) if dK < 0 else (v, u)
+        weight = abs(dK)  # for arrow thickness
+
+        # scale arrows
+        linewidth = max(2, 15*weight)
+        mutation_scale = 15 + 30*weight
 
         x1, y1 = pos[start]
         x2, y2 = pos[end]
@@ -134,8 +128,6 @@ if __name__ == "__main__":
     pos = fixed_layout()
 
     rates = fetch_rates(base="USD", days=5)
-
-    # Ensure at least 2 rows
     if len(rates) < 2:
         raise RuntimeError("Not enough valid FX data returned.")
 
