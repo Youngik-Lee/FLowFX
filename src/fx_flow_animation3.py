@@ -80,7 +80,6 @@ def draw_snapshot(G, rates, filename):
     ax = plt.gca()
 
     pos = circular_layout(G.nodes())
-
     arrow_edges = []
     node_flow_sum = {c:0.0 for c in G.nodes()}
 
@@ -88,18 +87,14 @@ def draw_snapshot(G, rates, filename):
         K_today = today_prices[u] / today_prices[v]
         K_yesterday = yesterday_prices[u] / yesterday_prices[v]
         dK = K_today - K_yesterday
-        
         if abs(dK) < 1e-6:
             continue
         
-        # Flow direction
         start, end = (v, u) if dK > 0 else (u, v)
-        
-        # Arrow width scaling
-        width = min(abs(dK)*5, 3)  # scale & cap
+
+        # Arrow width: minimum 0.5, max 3
+        width = max(min(abs(dK)*5, 3), 0.5)
         arrow_edges.append((start, end, width))
-        
-        # Node flow sum
         node_flow_sum[u] += abs(dK)
         node_flow_sum[v] += abs(dK)
 
@@ -107,25 +102,36 @@ def draw_snapshot(G, rates, filename):
     BASE_SIZE = 300
     MAX_NODE_SIZE = 1200
     NODE_SCALE_FACTOR = 5000
-    
     node_sizes = [min(BASE_SIZE + abs(node_flow_sum[c])*NODE_SCALE_FACTOR, MAX_NODE_SIZE) for c in G.nodes()]
 
-    # Draw nodes
     nx.draw_networkx_nodes(G, pos, node_size=node_sizes, node_color="skyblue", alpha=0.9, edgecolors='k')
     nx.draw_networkx_labels(G, pos, font_size=12, font_weight="bold")
 
-    # Draw arrows
+    # Draw arrows with midpoint arrowheads
     for u, v, width in arrow_edges:
         x1, y1 = pos[u]
         x2, y2 = pos[v]
+
+        # Full arrow (end arrowhead)
         arrow = FancyArrowPatch((x1, y1), (x2, y2),
                                 arrowstyle='-|>',
                                 color='darkred',
                                 linewidth=width,
-                                mutation_scale=10 + width*2,
+                                mutation_scale=8 + width*2,
                                 connectionstyle="arc3,rad=0.1",
                                 zorder=2)
         ax.add_patch(arrow)
+
+        # Midpoint arrow for direction
+        xm, ym = (x1 + x2)/2, (y1 + y2)/2
+        arrow_mid = FancyArrowPatch((x1, y1), (xm, ym),
+                                    arrowstyle='-|>',
+                                    color='darkred',
+                                    linewidth=width*0.8,
+                                    mutation_scale=6 + width*2,
+                                    connectionstyle="arc3,rad=0.1",
+                                    zorder=3)
+        ax.add_patch(arrow_mid)
 
     plt.title(f"FX Flow Network (Data Date: {rates.index[-1].strftime('%Y-%m-%d')})")
     plt.axis("off")
@@ -137,6 +143,7 @@ def draw_snapshot(G, rates, filename):
 # MAIN EXECUTION
 # -----------------------------
 if __name__ == "__main__":
+    # Initialize complete graph
     G = nx.Graph()
     for c in CURRENCIES:
         G.add_node(c)
@@ -145,7 +152,10 @@ if __name__ == "__main__":
             G.add_edge(c1, c2)
 
     try:
+        # Fetch FX rates
         rates = fetch_rates_yfinance(base="USD", currencies=CURRENCIES, days=7)
+
+        # Draw snapshot
         fname = os.path.join(OUTPUT_DIR, f"fx_flow_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.png")
         draw_snapshot(G, rates, fname)
     except RuntimeError as e:
