@@ -13,7 +13,6 @@ from matplotlib.patches import FancyArrowPatch
 CURRENCIES = ["USD", "EUR", "JPY", "KRW", "GBP", "SGD", "HKD", "AUD"]
 
 # Yahoo Finance Tickers for USD-based pairs (e.g., EURUSD=X is 1 EUR in USD)
-# The fetch function will convert this to USD in Foreign Currency (USD/X)
 TICKERS = {
     "EUR": "EURUSD=X", "JPY": "JPY=X", "KRW": "KRW=X",
     "GBP": "GBPUSD=X", "SGD": "SGDUSD=X", "HKD": "HKDUSD=X",
@@ -28,11 +27,9 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 # -----------------------------
 def fetch_rates_yfinance(base="USD", currencies=CURRENCIES, days=7):
     """
-    Fetches historical FX rates using yfinance. It converts the yfinance rate 
-    (Foreign in USD) to the required rate (USD in Foreign Currency) via the reciprocal.
-    We fetch 7 days to ensure we get at least 2 business days of data.
+    Fetches historical FX rates using yfinance, converting the F/X=USD rate
+    to the required USD/X=F rate (USD in foreign currency) via the reciprocal.
     """
-    # Determine the start and end dates
     start_date = (datetime.utcnow().date() - timedelta(days=days)).isoformat()
     end_date = datetime.utcnow().date().isoformat()
     
@@ -96,32 +93,26 @@ def draw_snapshot(G, rates, filename):
 
     pos = circular_layout(G.nodes())
 
-    # Compute all dK/dt (Daily change in cross-rate K_u/v)
     arrow_edges = []
     node_flow_sum = {c:0.0 for c in G.nodes()} # Measures total volatility for node sizing
 
     for u, v in G.edges():
         # K_u/v: The cross-rate of u in terms of v (how many v for 1 u)
-        # Rates are USD/X (USD in X). Cross-rate is (USD/v) / (USD/u) = u/v (u in terms of v)
-        # This represents how many units of v you get for 1 unit of u.
         K_today = today_prices[u] / today_prices[v]
         K_yesterday = yesterday_prices[u] / yesterday_prices[v]
         
-        # dK = K_today - K_yesterday (Change in the cross-rate K_u/v)
         dK = K_today - K_yesterday
         
         if abs(dK) < 1e-6:
             continue
         
-        # Flow definition: Arrow points from the currency that lost value (start) 
-        # to the currency that gained value (end).
+        # Flow definition: Arrow points from the weakening currency (start) 
+        # to the strengthening currency (end).
         if dK > 0:
             # K_u/v increased (u got stronger, v got weaker)
-            # Flow is from the weaker currency (v) to the stronger currency (u)
             start, end = v, u
         else:
             # K_u/v decreased (u got weaker, v got stronger)
-            # Flow is from the weaker currency (u) to the stronger currency (v)
             start, end = u, v
             
         width = abs(dK) * 50  # Scaling factor for arrow thickness
@@ -131,12 +122,23 @@ def draw_snapshot(G, rates, filename):
         node_flow_sum[u] += abs(dK)
         node_flow_sum[v] += abs(dK)
 
-    # Draw nodes with size proportional to volatility
-    node_sizes = [500 + 10000 * abs(node_flow_sum[c]) for c in G.nodes()]
+    # ----------------------------------------
+    # FIXED: Logarithmic Scaling for Node Size
+    # ----------------------------------------
+    # Use Logarithmic Scale to compress large differences in volatility
+    BASE_SIZE = 400
+    SCALE_FACTOR = 150
+    # Add a small value (1e-6) before scaling to prevent np.log(0) and ensure small nodes are visible
+    log_flows = [np.log(1 + abs(node_flow_sum[c] * 1e5)) for c in G.nodes()] 
+    
+    node_sizes = [BASE_SIZE + SCALE_FACTOR * flow for flow in log_flows]
+    # ----------------------------------------
+
+    # Draw nodes
     nx.draw_networkx_nodes(G, pos, node_size=node_sizes, node_color="skyblue", alpha=0.9, edgecolors='k')
     nx.draw_networkx_labels(G, pos, font_size=12, font_weight="bold")
 
-    # Draw arrows using FancyArrowPatch for curved, weighted arrows
+    # Draw arrows
     for u, v, width in arrow_edges:
         x1, y1 = pos[u]
         x2, y2 = pos[v]
