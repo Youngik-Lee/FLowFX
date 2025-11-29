@@ -36,12 +36,13 @@ def fetch_rates(base="USD", days=30):
 
     df = yf.download(tickers, start=start_date, end=end_date, progress=False)
 
-    # Handle MultiIndex columns
+    # If MultiIndex, pick 'Adj Close' if available
     if isinstance(df.columns, pd.MultiIndex):
         if 'Adj Close' in df:
             df = df['Adj Close']
         else:
-            df = df.xs('Adj Close', level=0, axis=1)
+            # fallback: take second level (the ticker)
+            df = df.xs(df.columns.levels[1][0], level=1, axis=1)
 
     if isinstance(df, pd.Series):
         df = df.to_frame()
@@ -59,8 +60,6 @@ def fetch_rates(base="USD", days=30):
     available = list(ticker_to_currency.values())
     df = df[available]
     df[base] = 1.0
-    if base not in df.columns:
-        df[base] = 1.0
 
     # Reorder, placing USD first
     df = df[[base] + [c for c in CURRENCIES if c in df.columns and c != base]]
