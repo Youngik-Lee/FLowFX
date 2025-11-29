@@ -27,7 +27,7 @@ def fixed_layout():
     }
 
 # -----------------------------
-# Fetch FX prices vs USD
+# Fetch FX prices vs USD safely
 # -----------------------------
 def fetch_rates(base="USD", days=30):
     end_date = datetime.utcnow().date()
@@ -36,7 +36,7 @@ def fetch_rates(base="USD", days=30):
 
     df = yf.download(tickers, start=start_date, end=end_date, progress=False)
 
-    # Handle multi-level DataFrame (new yfinance)
+    # Handle multi-level
     if isinstance(df.columns, pd.MultiIndex):
         if 'Adj Close' in df:
             df = df['Adj Close']
@@ -44,15 +44,19 @@ def fetch_rates(base="USD", days=30):
     if isinstance(df, pd.Series):
         df = df.to_frame()
 
-    # Map tickers to currency codes safely
-    ticker_to_currency = {f"{c}{base}=X": c for c in CURRENCIES if c != base}
-    df = df.rename(columns={t: ticker_to_currency[t] for t in df.columns if t in ticker_to_currency})
+    # Map tickers to currency codes
+    ticker_to_currency = {t: t.replace(f"{base}=X", "") for t in df.columns if t.endswith(f"{base}=X")}
+    df = df.rename(columns=ticker_to_currency)
 
-    # Add USD column
+    # Keep only available currencies + USD
+    available = list(ticker_to_currency.values())
+    df = df[available]
     df[base] = 1.0
+    if base not in df.columns:
+        df[base] = 1.0
 
-    # Reorder columns according to CURRENCIES
-    df = df[[c for c in CURRENCIES]]
+    # Reorder, placing USD first
+    df = df[[base] + [c for c in CURRENCIES if c in df.columns and c != base]]
 
     # Fill missing data
     df = df.ffill().bfill()
@@ -99,19 +103,11 @@ def draw_snapshot(G, rates, pos, filename, title="FX Flow Network"):
 
     # Draw arrows based on dK/dt rule
     for u, v in G.edges():
-        idx_u = CURRENCIES.index(u)
-        idx_v = CURRENCIES.index(v)
-
-        # Skip edge if any price is NaN
-        if np.isnan(today_prices[idx_u]) or np.isnan(today_prices[idx_v]) \
-           or np.isnan(yesterday_prices[idx_u]) or np.isnan(yesterday_prices[idx_v]):
+        if u not in rates.columns or v not in rates.columns:
             continue
 
-        # Compute K via USD as pivot
-        K_today = (today_prices[idx_u] / today_prices[usd_idx]) / \
-                  (today_prices[idx_v] / today_prices[usd_idx])
-        K_yesterday = (yesterday_prices[idx_u] / yesterday_prices[usd_idx]) / \
-                      (yesterday_prices[idx_v] / yesterday_prices[usd_idx])
+        K_today = (today_prices[u] / today_prices["USD"]) / (today_prices[v] / today_prices["USD"])
+        K_yesterday = (yesterday_prices[u] / yesterday_prices["USD"]) / (yesterday_prices[v] / yesterday_prices["USD"])
         dK = K_today - K_yesterday
 
         if dK == 0:
