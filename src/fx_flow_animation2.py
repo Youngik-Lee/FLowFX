@@ -3,20 +3,15 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import yfinance as yf
-import pandas as pd
 from datetime import datetime, timedelta
 from matplotlib.patches import FancyArrowPatch
 
 CURRENCIES = ["USD", "EUR", "JPY", "KRW", "GBP", "SGD", "HKD", "AUD"]
-
-# -----------------------------
-# Directories
-# -----------------------------
 OUTPUT_DIR = "output/animation"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # -----------------------------
-# FIXED NODE POSITIONS
+# Fixed layout
 # -----------------------------
 def fixed_layout():
     return {
@@ -31,19 +26,17 @@ def fixed_layout():
     }
 
 # -----------------------------
-# FETCH FX DATA
+# Fetch last 2 days FX rates
 # -----------------------------
-def fetch_rates(base="USD", days=60):
+def fetch_rates(base="USD", days=2):
     end_date = datetime.utcnow().date()
     start_date = end_date - timedelta(days=days)
-
     tickers = [f"{c}{base}=X" for c in CURRENCIES if c != base]
     df = yf.download(tickers, start=start_date, end=end_date)
     if 'Adj Close' in df:
         df = df['Adj Close']
     if isinstance(df, pd.Series):
         df = df.to_frame()
-
     df[base] = 1.0
     for c in CURRENCIES:
         if c not in df.columns:
@@ -52,13 +45,7 @@ def fetch_rates(base="USD", days=60):
     return df
 
 # -----------------------------
-# COMPUTE FLOWS
-# -----------------------------
-def compute_flows(rates: pd.DataFrame):
-    return (rates / rates.shift(1)).iloc[1:]
-
-# -----------------------------
-# BUILD NETWORK GRAPH
+# Build currency network
 # -----------------------------
 def build_country_graph():
     G = nx.Graph()
@@ -75,45 +62,42 @@ def build_country_graph():
     return G
 
 # -----------------------------
-# DRAW FRAME
+# Draw snapshot
 # -----------------------------
-def draw_frame(G, flow, pos, filename, title="FX Flow Network"):
+def draw_snapshot(G, rates, pos, filename, title="FX Flow Network"):
     plt.figure(figsize=(10, 7))
     ax = plt.gca()
 
-    DG = nx.DiGraph()
-    DG.add_nodes_from(G.nodes())
+    today_prices = rates.iloc[-1].values
+    yesterday_prices = rates.iloc[-2].values
+    ratios = today_prices / yesterday_prices
 
-    # Build directed edges: use abs(flow-1) for magnitude
-    max_diff = 0
+    # Draw nodes as circles
+    node_colors = np.abs(ratios - 1)
+    norm_colors = node_colors / (np.max(node_colors) + 1e-8)
+    nx.draw_networkx_nodes(G, pos, node_size=1500,
+                           node_color=norm_colors, cmap="coolwarm",
+                           edgecolors='black')
+    nx.draw_networkx_labels(G, pos, font_size=12, font_weight="bold")
+
+    # Draw arrows for all edges
+    max_diff = np.max([abs(ratios[CURRENCIES.index(u)] - ratios[CURRENCIES.index(v)]) 
+                       for u, v in G.edges()]) + 1e-8
+
     for u, v in G.edges():
-        fu = flow[CURRENCIES.index(u)]
-        fv = flow[CURRENCIES.index(v)]
-        mag = abs(fv - fu)
-        if mag < 1e-5:  # avoid skipping edges for tiny changes
-            mag = 1e-5
-        start, end = (u, v) if fu < fv else (v, u)
-        DG.add_edge(start, end, weight=mag)
-        if mag > max_diff:
-            max_diff = mag
+        r_u = ratios[CURRENCIES.index(u)]
+        r_v = ratios[CURRENCIES.index(v)]
 
-    # Draw nodes with color reflecting daily % change
-    node_values = np.abs(flow - 1)
-    norm_flow = node_values / (np.max(node_values) + 1e-8)
-    nx.draw_networkx_nodes(DG, pos, node_size=1500,
-                           node_color=norm_flow, cmap="coolwarm")
-    nx.draw_networkx_labels(DG, pos, font_size=12, font_weight="bold")
+        start, end = (u, v) if r_u < r_v else (v, u)
+        weight = abs(r_v - r_u)
 
-    # Draw arrows
-    for u, v, data in DG.edges(data=True):
-        x1, y1 = pos[u]
-        x2, y2 = pos[v]
-        norm_weight = data['weight'] / (max_diff + 1e-8)
+        x1, y1 = pos[start]
+        x2, y2 = pos[end]
         arrow = FancyArrowPatch((x1, y1), (x2, y2),
                                 arrowstyle='-|>',
                                 color='gray',
-                                linewidth=2 + 6*norm_weight,
-                                mutation_scale=15 + 30*norm_weight,
+                                linewidth=2 + 8*weight/max_diff,
+                                mutation_scale=15 + 25*weight/max_diff,
                                 connectionstyle="arc3,rad=0.1")
         ax.add_patch(arrow)
 
@@ -123,26 +107,19 @@ def draw_frame(G, flow, pos, filename, title="FX Flow Network"):
     plt.close()
 
 # -----------------------------
-# MAIN
+# Main
 # -----------------------------
 if __name__ == "__main__":
     G = build_country_graph()
     pos = fixed_layout()
 
-    rates = fetch_rates(base="USD")
-    flows = compute_flows(rates)
+    rates = fetch_rates(base="USD", days=2)
+    if len(rates) < 2:
+        raise RuntimeError("Not enough FX data.")
 
-    if flows.empty:
-        raise RuntimeError("No FX flow data to visualize")
-
-    # Pick latest flow for snapshot
-    latest_flow = flows.iloc[-1].values
-
-    # Timestamp with hour, minute, second
     now = datetime.utcnow()
     timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
-
     fname = os.path.join(OUTPUT_DIR, f"fx_flow_{now.strftime('%Y%m%d_%H%M%S')}.png")
-    draw_frame(G, latest_flow, pos, fname, title=f"FX Flow Network ({timestamp} UTC)")
 
+    draw_snapshot(G, rates, pos, fname, title=f"FX Flow Network ({timestamp} UTC)")
     print(f"Saved snapshot: {fname}")
