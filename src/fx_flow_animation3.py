@@ -94,10 +94,10 @@ def draw_snapshot(G, rates, filename):
     pos = circular_layout(G.nodes())
 
     arrow_edges = []
-    node_flow_sum = {c:0.0 for c in G.nodes()} # Measures total volatility for node sizing
+    node_flow_sum = {c:0.0 for c in G.nodes()} # Measures total volatility (Sum |dK|)
 
     for u, v in G.edges():
-        # K_u/v: The cross-rate of u in terms of v (how many v for 1 u)
+        # K_u/v: The cross-rate of u in terms of v 
         K_today = today_prices[u] / today_prices[v]
         K_yesterday = yesterday_prices[u] / yesterday_prices[v]
         
@@ -106,16 +106,14 @@ def draw_snapshot(G, rates, filename):
         if abs(dK) < 1e-6:
             continue
         
-        # Flow definition: Arrow points from the weakening currency (start) 
-        # to the strengthening currency (end).
+        # Determine flow direction
         if dK > 0:
-            # K_u/v increased (u got stronger, v got weaker)
             start, end = v, u
         else:
-            # K_u/v decreased (u got weaker, v got stronger)
             start, end = u, v
             
-        width = abs(dK) * 50  # Scaling factor for arrow thickness
+        # Arrow thickness: Linear scale of volatility (50 is the multiplier)
+        width = abs(dK) * 50  
         arrow_edges.append((start, end, width))
         
         # Aggregate flow for node sizing
@@ -123,27 +121,20 @@ def draw_snapshot(G, rates, filename):
         node_flow_sum[v] += abs(dK)
 
     # ----------------------------------------
-    # FIXED: Hybrid Logarithmic + Normalized Scaling for Node Size
-    # MAX_SIZE has been reduced to 1800.
+    # MODIFIED: Linear Scaling for Node Size 
+    # Node Size = Base Size + (Sum of all arrow widths attached to it) * Scaling Factor
     # ----------------------------------------
-    MIN_SIZE = 300   # Smallest possible node size
-    MAX_SIZE = 600  # Largest allowed node size (Adjusted to be smaller)
-    LOG_MULTIPLIER = 1e5 # Sensitivity factor for the log calculation
+    BASE_SIZE = 300  # Minimum size for any node
+    # We use a reduced multiplier (50000) to keep the max size manageable.
+    # The original arrow scale factor was 50. Summing 7 pairs * 50 = max 350.
+    # We need a much larger factor for node size.
+    NODE_SCALE_FACTOR = 50000 
 
-    # 1. Apply Logarithmic Scaling
-    log_flows = [np.log(1 + abs(node_flow_sum[c]) * LOG_MULTIPLIER) for c in G.nodes()] 
+    node_sizes = [BASE_SIZE + abs(node_flow_sum[c]) * NODE_SCALE_FACTOR for c in G.nodes()] 
     
-    # 2. Normalize the Logarithmic values to the range [0, 1]
-    max_log_flow = max(log_flows)
-    
-    if max_log_flow < 1e-6: # Handle case where all volatility is near zero
-        normalized_log_flows = [0.0] * len(G.nodes())
-    else:
-        normalized_log_flows = [flow / max_log_flow for flow in log_flows]
-        
-    # 3. Scale the normalized flow to the desired range [MIN_SIZE, MAX_SIZE]
-    range_size = MAX_SIZE - MIN_SIZE
-    node_sizes = [MIN_SIZE + range_size * flow for flow in normalized_log_flows]
+    # Apply a hard cap to prevent extreme sizes (e.g., if JPY or KRW were exceptionally volatile)
+    MAX_NODE_SIZE = 2000
+    node_sizes = [min(size, MAX_NODE_SIZE) for size in node_sizes]
     # ----------------------------------------
 
     # Draw nodes
