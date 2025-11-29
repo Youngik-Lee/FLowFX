@@ -1,20 +1,35 @@
 import pandas as pd
 import numpy as np
-from fx_flow_model import predict_with_confidence, run_linear_regression_multi, train_ml_model_multi, apply_slippage, calibrate_navier, CURRENCIES, add_timeseries_features, compute_covariance, compute_correlation, compute_alpha_signals, build_country_graph, simulate_step
+import os
+from fx_flow_model import (
+    predict_with_confidence, run_linear_regression_multi, train_ml_model_multi,
+    apply_slippage, calibrate_navier, CURRENCIES, add_timeseries_features,
+    compute_alpha_signals, build_country_graph, simulate_step, fetch_rates_yahoo
+)
 
 # -----------------------------
-# Load historical FX rates
+# Fetch historical FX rates
 # -----------------------------
-rates = pd.read_csv("historical_rates.csv", index_col=0, parse_dates=True)
+today = pd.Timestamp.today()
+start_date = today - pd.Timedelta(days=365)  # last 1 year
+rates = fetch_rates_yahoo(base="USD", start_date=start_date, end_date=today)
 K_matrix = rates[CURRENCIES].copy()
 dK_actual = K_matrix.diff().fillna(0)
 
 # -----------------------------
 # Backtest parameters
 # -----------------------------
-window = 60  # rolling window size (days)
+window = 60
+trade_volume = 1_000_000
 results = []
 
+# Ensure output folder exists
+output_dir = "output/backtest"
+os.makedirs(output_dir, exist_ok=True)
+
+# -----------------------------
+# Rolling window backtest
+# -----------------------------
 for t in range(window, len(K_matrix)-1):
     K_window = K_matrix.iloc[t-window:t]
     K_last = K_matrix.iloc[t]
@@ -31,7 +46,7 @@ for t in range(window, len(K_matrix)-1):
     # --- ML prediction ---
     X_last_row = K_window.iloc[-2:].drop(columns=["USD"]).pct_change().fillna(0).iloc[-1].to_frame().T
     ml_mean, ml_std = predict_with_confidence(ml_model, X_last_row)
-    slippage_pred = apply_slippage(ml_mean, volume=5_000_000)
+    slippage_pred = apply_slippage(ml_mean, volume=trade_volume)
 
     # --- regression & alpha ---
     reg_pred = lin_model.predict(X_last_row.values)[0]
@@ -39,7 +54,7 @@ for t in range(window, len(K_matrix)-1):
     alpha_pred_non_usd = compute_alpha_signals(rates_ts).iloc[-1].values[:7]
 
     combined_target = 0.5*ml_mean + 0.3*reg_pred.mean() + 0.2*alpha_pred_non_usd
-    combined_target = apply_slippage(combined_target, volume=5_000_000)
+    combined_target = apply_slippage(combined_target, volume=trade_volume)
     combined_target_full = np.insert(combined_target, CURRENCIES.index("USD"), 0)
     
     # --- Navier-Stokes simulation ---
@@ -51,27 +66,64 @@ for t in range(window, len(K_matrix)-1):
     for i, cur in enumerate(CURRENCIES):
         actual = K_next_actual[cur] - K_last[cur]
         pred = dK_pred[i]
+        direction = np.sign(pred)
+        pnl = direction * actual * trade_volume
+
         results.append({
             "date": K_matrix.index[t],
             "currency": cur,
             "actual_change": actual,
             "predicted_change": pred,
-            "direction_correct": np.sign(actual) == np.sign(pred)
+            "direction": direction,
+            "direction_correct": direction == np.sign(actual),
+            "pnl": pnl
         })
 
 # -----------------------------
 # Convert to DataFrame and compute metrics
 # -----------------------------
 results_df = pd.DataFrame(results)
+
 directional_accuracy = results_df.groupby("currency")["direction_correct"].mean() * 100
 mean_error = results_df.groupby("currency").apply(lambda x: np.mean(x["predicted_change"] - x["actual_change"]))
+total_pnl = results_df.groupby("currency")["pnl"].sum()
+mean_pnl_per_trade = results_df.groupby("currency")["pnl"].mean()
+sharpe_ratio = results_df.groupby("currency")["pnl"].apply(lambda x: x.mean() / x.std() * np.sqrt(252))
 
-print("==== Backtest Results ====")
-print("Directional Accuracy (%) per currency:")
+# Save full backtest results CSV
+results_df.to_csv(os.path.join(output_dir, "backtest_results.csv"), index=False)
+
+print("==== Backtest Summary ====")
+print("\nDirectional Accuracy (%):")
 print(directional_accuracy)
-print("\nMean Error per currency:")
-print(mean_error)
+print("\nTotal P&L:")
+print(total_pnl)
+print("\nSharpe Ratio:")
+print(sharpe_ratio)
 
-# Optional: save results
-results_df.to_csv("backtest_results.csv", index=False)
-print("\n[Saved backtest results] backtest_results.csv")
+# -----------------------------
+# Save final day summary (like summary.txt)
+# -----------------------------
+last_row = K_matrix.iloc[-1]
+summary_lines = []
+summary_lines.append("==== NAVIER SYSTEM PARAMETERS ====")
+summary_lines.append(f"nu: {nu:.6f}")
+summary_lines.append(f"gamma: {gamma:.6f}")
+summary_lines.append(f"f: {f:.6f}\n")
+
+summary_lines.append("==== ML + Regression + Alpha (Non-USD Currencies) ====")
+summary_lines.append(f"ML Predicted dK/dt: {ml_mean}")
+summary_lines.append(f"Regression contribution: {reg_pred}")
+summary_lines.append(f"Alpha contribution: {alpha_pred_non_usd}")
+summary_lines.append(f"After slippage: {slippage_pred}\n")
+
+summary_lines.append("==== CURRENCY PREDICTIONS ====")
+reliability = max(0, 1 - ml_std.mean())
+for cur, K_today, dK in zip(CURRENCIES, last_row.values, dK_pred):
+    summary_lines.append(f"{cur}: K_today={K_today:.6f}, dK/dt_pred={dK:.6f}, reliability={reliability:.3f}")
+
+summary_path = os.path.join(output_dir, "summary.txt")
+with open(summary_path, "w", encoding="utf-8") as f:
+    f.write("\n".join(summary_lines))
+
+print(f"\n[Saved final summary] {summary_path}")
