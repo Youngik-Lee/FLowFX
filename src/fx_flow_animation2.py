@@ -36,18 +36,13 @@ def fetch_rates(base="USD", days=30):
 
     df = yf.download(tickers, start=start_date, end=end_date, progress=False)
 
-    # If MultiIndex, pick 'Adj Close' if available
     if isinstance(df.columns, pd.MultiIndex):
         if 'Adj Close' in df:
             df = df['Adj Close']
-        else:
-            # fallback: take second level (the ticker)
-            df = df.xs(df.columns.levels[1][0], level=1, axis=1)
 
     if isinstance(df, pd.Series):
         df = df.to_frame()
 
-    # Map tickers to currency codes
     ticker_to_currency = {}
     for t in df.columns:
         col_name = t[-1] if isinstance(t, tuple) else t
@@ -55,16 +50,10 @@ def fetch_rates(base="USD", days=30):
             ticker_to_currency[t] = col_name.replace(f"{base}=X", "")
 
     df = df.rename(columns=ticker_to_currency)
-
-    # Keep only available currencies + USD
     available = list(ticker_to_currency.values())
     df = df[available]
     df[base] = 1.0
-
-    # Reorder, placing USD first
-    df = df[[base] + [c for c in CURRENCIES if c in df.columns and c != base]]
-
-    # Fill missing data
+    df = df[[c for c in CURRENCIES if c in df.columns]]  # reorder
     df = df.ffill().bfill()
     return df
 
@@ -86,7 +75,7 @@ def build_country_graph():
     return G
 
 # -----------------------------
-# Draw FX snapshot
+# Draw FX snapshot with arrow thickness and node size
 # -----------------------------
 def draw_snapshot(G, rates, pos, filename, title="FX Flow Network"):
     plt.figure(figsize=(10, 7))
@@ -98,15 +87,10 @@ def draw_snapshot(G, rates, pos, filename, title="FX Flow Network"):
     today_prices = rates.iloc[-1]
     yesterday_prices = rates.iloc[-2]
 
-    # Draw nodes as circles
-    node_colors = np.abs(today_prices / yesterday_prices - 1)
-    norm_colors = node_colors / (np.nanmax(node_colors) + 1e-8)
-    nx.draw_networkx_nodes(G, pos, node_size=1500,
-                           node_color=norm_colors, cmap="coolwarm",
-                           edgecolors='black')
-    nx.draw_networkx_labels(G, pos, font_size=12, font_weight="bold")
+    # Compute dK/dt for all edges
+    dK_dict = {}
+    node_weights = {c: 0.0 for c in G.nodes()}
 
-    # Draw arrows based on dK/dt rule
     for u, v in G.edges():
         if u not in rates.columns or v not in rates.columns:
             continue
@@ -116,21 +100,32 @@ def draw_snapshot(G, rates, pos, filename, title="FX Flow Network"):
         dK = K_today - K_yesterday
 
         if dK == 0:
-            continue  # no arrow
+            continue
 
         start, end = (u, v) if dK < 0 else (v, u)
-        weight = abs(dK)
+        dK_dict[(start, end)] = abs(dK)
 
-        linewidth = max(2, 15 * weight)
-        mutation_scale = 15 + 30 * weight
+        # accumulate node weights
+        node_weights[u] += abs(dK)
+        node_weights[v] += abs(dK)
 
+    # Normalize node sizes
+    max_weight = max(node_weights.values()) + 1e-8
+    node_sizes = [800 + 2000 * (node_weights[n] / max_weight) for n in G.nodes()]
+
+    nx.draw_networkx_nodes(G, pos, node_size=node_sizes,
+                           node_color='skyblue', edgecolors='black')
+    nx.draw_networkx_labels(G, pos, font_size=12, font_weight="bold")
+
+    # Draw arrows
+    for (start, end), weight in dK_dict.items():
         x1, y1 = pos[start]
         x2, y2 = pos[end]
         arrow = FancyArrowPatch((x1, y1), (x2, y2),
                                 arrowstyle='-|>',
                                 color='gray',
-                                linewidth=linewidth,
-                                mutation_scale=mutation_scale,
+                                linewidth=3 + 20*weight,  # proportional to abs(dK/dt)
+                                mutation_scale=15 + 20*weight,
                                 connectionstyle="arc3,rad=0.1")
         ax.add_patch(arrow)
 
@@ -144,7 +139,7 @@ def draw_snapshot(G, rates, pos, filename, title="FX Flow Network"):
 # -----------------------------
 if __name__ == "__main__":
     G = build_country_graph()
-    pos = fixed_layout()
+    pos = fixed_layout()  # you can shuffle or change positions if you want
 
     rates = fetch_rates(base="USD", days=30)
     if len(rates) < 2:
