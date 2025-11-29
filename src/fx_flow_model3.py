@@ -74,6 +74,7 @@ def train_ml_model_multi(X_df, y_df):
 # Navier-Stokes calibration
 # -----------------------------
 def calibrate_navier(K_last, combined_target, G):
+    # G is the constructed graph
     _, _, _, A, L = calibrate(pd.DataFrame([K_last], columns=CURRENCIES), G)
 
     def loss(params):
@@ -102,6 +103,7 @@ if __name__ == "__main__":
 
     # --- features and targets ---
     K_features = K_matrix.shift(1).dropna()
+    # Drop "USD" target for consistent 7-target prediction
     dK_targets_non_usd = dK_dt.iloc[1:].drop(columns=["USD"], errors='ignore')
 
     # --- time series & quant features ---
@@ -139,8 +141,8 @@ if __name__ == "__main__":
     combined_target_full = np.insert(combined_target, CURRENCIES.index("USD"), 0)
     K_last_full = K_matrix.iloc[-1].values 
     
-    # FIX: Use the correlation matrix as a POSITIONAL argument
-    G = build_country_graph(corr)
+    # FINAL FIX: Call build_country_graph() with NO arguments
+    G = build_country_graph()
     
     nu, gamma, f, A, L = calibrate_navier(K_last_full, combined_target_full, G)
     dK_pred = simulate_step(K_last_full, A, L, nu, gamma, f*np.ones(len(CURRENCIES)))
