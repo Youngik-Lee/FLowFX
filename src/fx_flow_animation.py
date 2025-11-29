@@ -6,7 +6,6 @@ import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
 from matplotlib.patches import FancyArrowPatch
-
 # -----------------------------
 # SETTINGS
 # -----------------------------
@@ -27,12 +26,12 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 def fetch_rates_yfinance(base="USD", currencies=CURRENCIES, days=7):
     start_date = (datetime.utcnow().date() - timedelta(days=days)).isoformat()
     end_date = datetime.utcnow().date().isoformat()
-    
+
     ticker_list = list(TICKERS.values())
     
     # Download data from yfinance
     data = yf.download(ticker_list, start=start_date, end=end_date, progress=False)['Close']
-    
+
     if data.empty:
         raise RuntimeError("No valid FX data returned from yfinance.")
 
@@ -44,13 +43,13 @@ def fetch_rates_yfinance(base="USD", currencies=CURRENCIES, days=7):
             df[currency] = 1.0 / data[ticker]
         else:
             print(f"Warning: No data for ticker {ticker}.")
-            
+
     df[base] = 1.0
     df = df[[c for c in currencies if c in df.columns]].dropna()
 
     if len(df) < 2:
         raise RuntimeError(f"Yfinance returned only {len(df)} days. Need at least 2.")
-        
+
     print(f"Successfully fetched {len(df)} days of rates.")
     return df
 
@@ -66,7 +65,7 @@ def circular_layout(nodes):
     return pos
 
 # -----------------------------
-# DRAW SNAPSHOT (MIDPOINT ARROWS)
+# DRAW SNAPSHOT (STRAIGHT MIDPOINT ARROWS)
 # -----------------------------
 def draw_snapshot(G, rates, filename):
     if len(rates) < 2:
@@ -82,7 +81,7 @@ def draw_snapshot(G, rates, filename):
     pos = circular_layout(G.nodes())
     node_flow_sum = {c:0.0 for c in G.nodes()}
 
-    # Prepare edge arrows
+    # Prepare midpoint arrows
     arrows = []
     for u, v in G.edges():
         K_today = today_prices[u] / today_prices[v]
@@ -118,14 +117,14 @@ def draw_snapshot(G, rates, filename):
     nx.draw_networkx_nodes(G, pos, node_size=node_sizes, node_color="skyblue", alpha=0.9, edgecolors='k')
     nx.draw_networkx_labels(G, pos, font_size=12, font_weight="bold")
 
-    # Draw midpoint arrows
+    # Draw straight midpoint arrows
     for x_start, y_start, x_end, y_end, width in arrows:
         arrow = FancyArrowPatch((x_start, y_start), (x_end, y_end),
                                 arrowstyle='-|>',
                                 color='darkred',
                                 linewidth=width,
                                 mutation_scale=6 + width*2,
-                                connectionstyle="arc3,rad=0.0",
+                                connectionstyle="arc3,rad=0.0",  # straight line
                                 zorder=3)
         ax.add_patch(arrow)
 
