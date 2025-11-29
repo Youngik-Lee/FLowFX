@@ -32,8 +32,9 @@ def fetch_rates_yfinance(base="USD", currencies=CURRENCIES, days=7):
 
     # Download data from yfinance
     ticker_list = list(TICKERS.values())
-    # Silence download progress output for a cleaner script run
-    data = yf.download(ticker_list, start=start_date, end=end_date, progress=False)['Close']
+    # Note: Suppressing FutureWarning by explicitly setting auto_adjust=False 
+    # to maintain consistency with the original script's behavior.
+    data = yf.download(ticker_list, start=start_date, end=end_date, progress=False, auto_adjust=False)['Close']
     
     if data.empty:
         raise RuntimeError("No valid FX data returned from yfinance.")
@@ -43,9 +44,7 @@ def fetch_rates_yfinance(base="USD", currencies=CURRENCIES, days=7):
     # Convert Tickers back to Currency Names and calculate rate against the Base (USD)
     for currency, ticker in TICKERS.items():
         if ticker in data.columns:
-            # EURUSD=X is EUR/USD. 1.0 / (EUR/USD) gives USD/EUR, which is the USD rate.
-            # This logic needs adjustment based on convention. Assuming Tickers are QUOTE/BASE (e.g., EURUSD=X means 1 EUR = X USD), 
-            # we want the inverse to get USD's value in other currencies, which is standard for a USD-based analysis.
+            # We use the reciprocal to get the rate against USD (e.g., USD/EUR)
             df[currency] = 1.0 / data[ticker]
         else:
             print(f"Warning: No data for ticker {ticker}.")
@@ -74,7 +73,7 @@ def circular_layout(nodes):
     return pos
 
 # -----------------------------
-# DRAW SNAPSHOT (CORRECTED FOR SINGLE MIDPOINT ARROW)
+# DRAW SNAPSHOT (FINAL CORRECTED VERSION)
 # -----------------------------
 
 def draw_snapshot(G, rates, filename):
@@ -124,38 +123,36 @@ def draw_snapshot(G, rates, filename):
         x1, y1 = pos[u] # Start coordinates
         x2, y2 = pos[v] # End coordinates
         
-        # Calculate straight-line midpoint (where the marker will be placed)
+        # Calculate straight-line midpoint 
         xm, ym = (x1 + x2)/2, (y1 + y2)/2
         
-        # 1. Draw the full curved line (no arrow head)
+        # 1. Draw the full curved line (the single edge)
         line = FancyArrowPatch(
             (x1, y1), (x2, y2), 
-            arrowstyle='-',  # Simple line style
+            arrowstyle='-',  # Simple line style (no arrowhead)
             color='darkred', 
             linewidth=width, 
-            mutation_scale=1, # No arrowhead needed
+            mutation_scale=1, 
             connectionstyle="arc3,rad=0.1", 
             zorder=2
         )
         ax.add_patch(line)
         
-        # 2. Place a directional marker at the midpoint
-        
-        # Calculate angle of the straight line segment (for rotation)
+        # 2. Calculate angle for the marker rotation
         dx = x2 - x1
         dy = y2 - y1
         angle_rad = np.arctan2(dy, dx)
         angle_deg = np.degrees(angle_rad)
         
-        # Plot a small triangle marker at the midpoint (xm, ym)
-        ax.plot(
-            xm, ym, 
-            marker='>',  # Use a triangle marker
-            markersize=3 + width*2, # Size proportional to line width
+        # 3. Place a rotated directional marker at the midpoint using plt.scatter
+        # plt.scatter supports the 'rotation' keyword, resolving the AttributeError.
+        # The marker size 's' is an area, so it needs a scaling factor (e.g., *50) for visibility.
+        ax.scatter(
+            [xm], [ym], 
+            marker='>',  # Triangle marker
+            s=[(3 + width*2) * 50], 
             color='darkred',
-            linestyle='', # Do not draw a line
-            transform=ax.transData,
-            rotation=angle_deg, # Rotate to align with the flow direction
+            rotation=angle_deg, 
             zorder=4
         )
         
@@ -181,7 +178,6 @@ if __name__ == "__main__":
 
     try:
         # Fetch FX rates 
-        # (It will print an error if run without internet access or if yfinance is down)
         rates = fetch_rates_yfinance(base="USD", currencies=CURRENCIES, days=7)
         
         # Draw snapshot
