@@ -1,19 +1,22 @@
 ==== NAVIER SYSTEM PARAMETERS ====
-nu: 0.008843
-gamma: 0.320954
-f: 0.389058
+nu: 0.133587
+gamma: 0.598966
+f: 0.000000
 
-==== ML PREDICTION ====
-Predicted flow: 0.000000
-Reliability (std across trees): 0.000000
-After slippage: -0.500200
+==== ML + Regression + Alpha (Non-USD Currencies) ====
+ML Predicted dK/dt: -0.00035390935450864376
+Regression contribution: [-2.00094261e-04 -6.69490416e-06 -2.53700701e-06 -1.71050143e-03
+ -2.75506470e-04 -4.15957694e-06 -1.87696640e-03]
+Alpha contribution: [1.00000000e+00 1.15998518e+00 6.39860798e-03 6.84275350e-04
+ 1.32411754e+00 7.71176517e-01 1.28556192e-01]
+After slippage: -0.5005539093545086
 
 ==== CURRENCY PREDICTIONS ====
-USD: today=1.000000, predicted=0.067075, reliability=1.000
-EUR: today=0.999803, predicted=0.068359, reliability=1.000
-JPY: today=0.999712, predicted=0.066105, reliability=1.000
-KRW: today=1.006288, predicted=0.066391, reliability=1.000
-GBP: today=0.999711, predicted=0.068292, reliability=1.000
-SGD: today=0.999707, predicted=0.067656, reliability=1.000
-HKD: today=0.999884, predicted=0.066087, reliability=1.000
-AUD: today=1.001676, predicted=0.067745, reliability=1.000
+USD: K_today=1.000000, dK/dt_pred=0.218066, reliability=1.000
+EUR: K_today=1.159985, dK/dt_pred=-0.282377, reliability=1.000
+JPY: K_today=0.006399, dK/dt_pred=-0.288116, reliability=1.000
+KRW: K_today=0.000684, dK/dt_pred=-0.151326, reliability=1.000
+GBP: K_today=1.324118, dK/dt_pred=-0.833797, reliability=1.000
+SGD: K_today=0.771177, dK/dt_pred=-0.077858, reliability=1.000
+HKD: K_today=0.128556, dK/dt_pred=-0.209550, reliability=1.000
+AUD: K_today=0.653580, dK/dt_pred=-0.378681, reliability=1.000
