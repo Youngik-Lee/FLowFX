@@ -30,7 +30,7 @@ def save_summary_file(content: str):
 
 def predict_with_confidence(model, X):
     """ML prediction with mean and std across trees for confidence."""
-    preds = np.array([tree.predict(X.values.reshape(1, -1)) for tree in model.estimators_])
+    preds = np.array([est.predict(X.values.reshape(1, -1)) for est in model.estimators_])
     mean_pred = preds.mean(axis=0)   # multi-output mean
     std_pred = preds.std(axis=0)
     return mean_pred, std_pred
@@ -48,6 +48,19 @@ def run_linear_regression_multi(X_df, y_df):
     coefs = np.array([est.coef_ for est in model.estimators_])
     intercepts = np.array([est.intercept_ for est in model.estimators_])
     return model, coefs, intercepts
+
+# -----------------------------
+# Multi-output ML (Random Forest)
+# -----------------------------
+def train_ml_model_multi(X_df, y_df):
+    """
+    Train multi-output random forest to predict dK/dt for all currencies
+    """
+    X = X_df.pct_change().fillna(0).values
+    y = y_df.values
+    model = MultiOutputRegressor(RandomForestRegressor(n_estimators=100, random_state=42))
+    model.fit(X, y)
+    return model
 
 # -----------------------------
 # Navier-Stokes calibration
@@ -92,7 +105,7 @@ if __name__ == "__main__":
 
     # --- regression & ML models ---
     lin_model, coefs, intercepts = run_linear_regression_multi(K_features, dK_targets)
-    ml_model = train_ml_model(K_features, dK_targets)
+    ml_model = train_ml_model_multi(K_features, dK_targets)
 
     # --- predict dK/dt for last day ---
     X_last = K_matrix.iloc[-1].drop("USD")
@@ -131,6 +144,3 @@ if __name__ == "__main__":
 
     save_summary_file("\n".join(summary_lines))
     print("\n".join(summary_lines))
-
-    # --- optional visualization ---
-    # draw_flow(G, K_matrix.iloc[-1].values, dK_pred)
