@@ -52,7 +52,7 @@ def predict_with_confidence(model, X):
 # Multi-output Linear Regression
 # -----------------------------
 def run_linear_regression_multi(X_df, y_df):
-    # FIX: Drop "USD" from features before calculating percentage change
+    # FIX 1: Drop "USD" from features before calculating percentage change
     X = X_df.drop(columns=["USD"]).pct_change().fillna(0).values 
     y = y_df.values
     model = MultiOutputRegressor(LinearRegression())
@@ -65,10 +65,9 @@ def run_linear_regression_multi(X_df, y_df):
 # Multi-output ML (Random Forest)
 # -----------------------------
 def train_ml_model_multi(X_df, y_df):
-    # FIX: Drop "USD" from features before calculating percentage change
+    # FIX 1: Drop "USD" from features before calculating percentage change
     X = X_df.drop(columns=["USD"]).pct_change().fillna(0).values 
     y = y_df.values
-    # Set n_estimators=100 for better variance in std calculation
     model = MultiOutputRegressor(RandomForestRegressor(n_estimators=100, random_state=42)) 
     model.fit(X, y)
     return model
@@ -77,8 +76,6 @@ def train_ml_model_multi(X_df, y_df):
 # Navier-Stokes calibration
 # -----------------------------
 def calibrate_navier(K_last, combined_target, G):
-    # K_last should be a 1D numpy array of the last rates
-    # Assuming calibrate() is a function from fx_utils that handles K_last appropriately
     _, _, _, A, L = calibrate(pd.DataFrame([K_last], columns=CURRENCIES), G)
 
     def loss(params):
@@ -101,14 +98,14 @@ if __name__ == "__main__":
     end_date = today
 
     # --- fetch FX rates ---
-    # Assuming CURRENCIES is a global list including 'USD'
     rates = fetch_rates_yahoo(base="USD", start_date=start_date, end_date=end_date)
-    K_matrix = rates[CURRENCIES].copy()       # K = FX rates (e.g., 8 currencies including USD)
-    dK_dt = K_matrix.diff().fillna(0)         # flow speed
+    K_matrix = rates[CURRENCIES].copy()       
+    dK_dt = K_matrix.diff().fillna(0)         
 
     # --- features and targets ---
     K_features = K_matrix.shift(1).dropna()
-    dK_targets = dK_dt.iloc[1:]
+    # FIX 2: Drop "USD" target for consistent 7-target prediction
+    dK_targets_non_usd = dK_dt.iloc[1:].drop(columns=["USD"], errors='ignore')
 
     # --- time series & quant features ---
     rates_ts = add_timeseries_features(K_matrix)
@@ -117,19 +114,14 @@ if __name__ == "__main__":
     alpha_df = compute_alpha_signals(rates_ts)
 
     # --- regression & ML models ---
-    lin_model, coefs, intercepts = run_linear_regression_multi(K_features, dK_targets)
-    ml_model = train_ml_model_multi(K_features, dK_targets)
+    lin_model, coefs, intercepts = run_linear_regression_multi(K_features, dK_targets_non_usd)
+    ml_model = train_ml_model_multi(K_features, dK_targets_non_usd)
 
     # --- predict dK/dt for last day ---
     
-    # FIX: Prepare the single feature vector X_last consistently with training data
-    # 1. Get the last two data points (K_T-1 and K_T)
+    # FIX 3: Prepare the single feature vector X_last consistently (7 non-USD features)
     K_last_2_rows = K_matrix.iloc[-2:].copy() 
-    
-    # 2. Drop "USD" and calculate pct_change() over the last step
     X_features_last = K_last_2_rows.drop(columns=["USD"]).pct_change().fillna(0)
-    
-    # 3. Extract the last row, which is the feature vector for prediction
     X_last_row_df = X_features_last.iloc[-1].to_frame().T 
 
     # Predict using the 7-feature vector
@@ -137,49 +129,24 @@ if __name__ == "__main__":
     slippage_pred = apply_slippage(ml_mean, volume=5_000_000)
 
     # --- combine targets for NS calibration ---
-    # FIX: Use the new single feature vector for regression prediction
-    reg_pred = lin_model.predict(X_last_row_df)[0] 
-    
-    alpha_pred = alpha_df.iloc[-1].values # Alpha usually predicts all currencies including USD
-    
-    # Assuming ml_mean and reg_pred are 1D arrays of size 7 (or matching dK_targets size)
-    # and alpha_pred is 1D array of size len(CURRENCIES).
-    
-    # To combine, we must ensure they have the same size and currency order. 
-    # Since ml_model and lin_model were trained on dK_targets (which has USD), 
-    # we assume they predict all currencies including USD. 
-    # Reverting to old logic for `reg_pred` if it was intended to predict 8 currencies:
-    
-    # Let's assume dK_targets has all CURRENCIES (including USD, which is 0)
-    # The training input X has 7 features (rates.pct_change() excluding USD)
-    # The training output y has 8 targets (dK_targets, including USD)
-    
-    # Let's assume dK_targets only contains the *non-USD* currencies (7 currencies) for consistency:
-    dK_targets_non_usd = dK_targets.drop(columns=["USD"], errors='ignore')
-    
-    # Retrain models with 7 targets for full consistency (assuming USD/USD dK is always 0)
-    lin_model, coefs, intercepts = run_linear_regression_multi(K_features, dK_targets_non_usd)
-    ml_model = train_ml_model_multi(K_features, dK_targets_non_usd)
-    
-    # Rerun predictions
-    ml_mean, ml_std = predict_with_confidence(ml_model, X_last_row_df)
-    reg_pred = lin_model.predict(X_last_row_df)[0]
+    # FIX 4: Use .values to remove feature names and suppress UserWarning
+    reg_pred = lin_model.predict(X_last_row_df.values)[0] 
     
     # If alpha_df has all CURRENCIES, drop USD to match ml_mean and reg_pred (size 7)
     alpha_pred_non_usd = alpha_df.iloc[-1].drop(labels=["USD"], errors='ignore').values 
     
-    # combined_target must now be of size 7, covering the non-USD currencies
+    # combined_target is size 7 (non-USD currencies)
     combined_target = 0.5*ml_mean + 0.3*reg_pred.mean() + 0.2*alpha_pred_non_usd
     combined_target = apply_slippage(combined_target, volume=5_000_000)
 
     # --- NS simulation ---
-    # Need to pad combined_target back to 8 currencies for NS if simulate_step expects it
+    # Need to pad combined_target back to 8 currencies for NS
     combined_target_full = np.insert(combined_target, CURRENCIES.index("USD"), 0)
-    
-    # K_matrix.iloc[-1].values contains all 8 currencies
     K_last_full = K_matrix.iloc[-1].values 
     
-    G = build_country_graph(covariance=cov)
+    # FIX 5: Corrected argument for build_country_graph to use 'correlation' instead of 'covariance'
+    G = build_country_graph(correlation=corr)
+    
     nu, gamma, f, A, L = calibrate_navier(K_last_full, combined_target_full, G)
     dK_pred = simulate_step(K_last_full, A, L, nu, gamma, f*np.ones(len(CURRENCIES)))
     K_next = K_last_full + dK_pred
@@ -208,4 +175,3 @@ if __name__ == "__main__":
 
     # --- optional visualization ---
     # draw_flow(G, K_matrix.iloc[-1].values, dK_pred)
-
