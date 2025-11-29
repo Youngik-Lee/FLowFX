@@ -52,7 +52,6 @@ def predict_with_confidence(model, X):
 # Multi-output Linear Regression
 # -----------------------------
 def run_linear_regression_multi(X_df, y_df):
-    # FIX 1: Drop "USD" from features before calculating percentage change
     X = X_df.drop(columns=["USD"]).pct_change().fillna(0).values 
     y = y_df.values
     model = MultiOutputRegressor(LinearRegression())
@@ -65,7 +64,6 @@ def run_linear_regression_multi(X_df, y_df):
 # Multi-output ML (Random Forest)
 # -----------------------------
 def train_ml_model_multi(X_df, y_df):
-    # FIX 1: Drop "USD" from features before calculating percentage change
     X = X_df.drop(columns=["USD"]).pct_change().fillna(0).values 
     y = y_df.values
     model = MultiOutputRegressor(RandomForestRegressor(n_estimators=100, random_state=42)) 
@@ -104,7 +102,6 @@ if __name__ == "__main__":
 
     # --- features and targets ---
     K_features = K_matrix.shift(1).dropna()
-    # FIX 2: Drop "USD" target for consistent 7-target prediction
     dK_targets_non_usd = dK_dt.iloc[1:].drop(columns=["USD"], errors='ignore')
 
     # --- time series & quant features ---
@@ -119,7 +116,6 @@ if __name__ == "__main__":
 
     # --- predict dK/dt for last day ---
     
-    # FIX 3: Prepare the single feature vector X_last consistently (7 non-USD features)
     K_last_2_rows = K_matrix.iloc[-2:].copy() 
     X_features_last = K_last_2_rows.drop(columns=["USD"]).pct_change().fillna(0)
     X_last_row_df = X_features_last.iloc[-1].to_frame().T 
@@ -129,10 +125,9 @@ if __name__ == "__main__":
     slippage_pred = apply_slippage(ml_mean, volume=5_000_000)
 
     # --- combine targets for NS calibration ---
-    # FIX 4: Use .values to remove feature names and suppress UserWarning
+    # Use .values to remove feature names and suppress UserWarning
     reg_pred = lin_model.predict(X_last_row_df.values)[0] 
     
-    # If alpha_df has all CURRENCIES, drop USD to match ml_mean and reg_pred (size 7)
     alpha_pred_non_usd = alpha_df.iloc[-1].drop(labels=["USD"], errors='ignore').values 
     
     # combined_target is size 7 (non-USD currencies)
@@ -144,8 +139,8 @@ if __name__ == "__main__":
     combined_target_full = np.insert(combined_target, CURRENCIES.index("USD"), 0)
     K_last_full = K_matrix.iloc[-1].values 
     
-    # FIX 5: Corrected argument for build_country_graph to use 'correlation' instead of 'covariance'
-    G = build_country_graph(correlation=corr)
+    # FIX: Use the correlation matrix as a POSITIONAL argument
+    G = build_country_graph(corr)
     
     nu, gamma, f, A, L = calibrate_navier(K_last_full, combined_target_full, G)
     dK_pred = simulate_step(K_last_full, A, L, nu, gamma, f*np.ones(len(CURRENCIES)))
@@ -165,7 +160,6 @@ if __name__ == "__main__":
     summary_lines.append(f"After slippage: {slippage_pred}\n")
 
     summary_lines.append("==== CURRENCY PREDICTIONS ====")
-    # Simple reliability calculation using the mean standard deviation of the ML prediction
     reliability = max(0, 1 - ml_std.mean()) 
     for cur, K_today, dK in zip(CURRENCIES, K_matrix.iloc[-1].values, dK_pred):
         summary_lines.append(f"{cur}: K_today={K_today:.6f}, dK/dt_pred={dK:.6f}, reliability={reliability:.3f}")
