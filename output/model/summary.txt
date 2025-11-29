@@ -1,0 +1,19 @@
+==== NAVIER SYSTEM PARAMETERS ====
+nu: 0.008843
+gamma: 0.320954
+f: 0.389058
+
+==== ML PREDICTION ====
+Predicted flow: 0.000000
+Reliability (std across trees): 0.000000
+After slippage: -0.500200
+
+==== CURRENCY PREDICTIONS ====
+USD: today=1.000000, predicted=0.067075, reliability=1.000
+EUR: today=0.999803, predicted=0.068359, reliability=1.000
+JPY: today=0.999712, predicted=0.066105, reliability=1.000
+KRW: today=1.006288, predicted=0.066391, reliability=1.000
+GBP: today=0.999711, predicted=0.068292, reliability=1.000
+SGD: today=0.999707, predicted=0.067656, reliability=1.000
+HKD: today=0.999884, predicted=0.066087, reliability=1.000
+AUD: today=1.001676, predicted=0.067745, reliability=1.000
