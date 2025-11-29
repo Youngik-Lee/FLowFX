@@ -46,8 +46,7 @@ def fetch_rates(base="USD", days=30):
         if c not in df.columns:
             df[c] = np.nan
 
-    # fill missing data but keep all rows
-    df = df[CURRENCIES].ffill().bfill()
+    df = df[CURRENCIES].ffill().bfill()  # fill missing prices
     return df
 
 # -----------------------------
@@ -68,7 +67,7 @@ def build_country_graph():
     return G
 
 # -----------------------------
-# Draw FX snapshot with dK/dt
+# Draw FX snapshot
 # -----------------------------
 def draw_snapshot(G, rates, pos, filename, title="FX Flow Network"):
     plt.figure(figsize=(10, 7))
@@ -77,29 +76,33 @@ def draw_snapshot(G, rates, pos, filename, title="FX Flow Network"):
     if len(rates) < 2:
         raise RuntimeError("Not enough data to compare today and yesterday.")
 
-    today_prices = rates.iloc[-1].values
-    yesterday_prices = rates.iloc[-2].values
+    today_prices = rates.iloc[-1]
+    yesterday_prices = rates.iloc[-2]
+    usd_idx = CURRENCIES.index("USD")
 
-    # Draw nodes as circles
+    # Draw nodes
     node_colors = np.abs(today_prices / yesterday_prices - 1)
-    norm_colors = node_colors / (np.max(node_colors) + 1e-8)
+    norm_colors = node_colors / (np.nanmax(node_colors) + 1e-8)
     nx.draw_networkx_nodes(G, pos, node_size=1500,
                            node_color=norm_colors, cmap="coolwarm",
                            edgecolors='black')
     nx.draw_networkx_labels(G, pos, font_size=12, font_weight="bold")
 
-    # Draw arrows based on dK/dt rule
+    # Draw arrows
     for u, v in G.edges():
         idx_u = CURRENCIES.index(u)
         idx_v = CURRENCIES.index(v)
 
-        # Skip if any price is NaN
+        # Skip edge if a currency is NaN
         if np.isnan(today_prices[idx_u]) or np.isnan(today_prices[idx_v]) \
            or np.isnan(yesterday_prices[idx_u]) or np.isnan(yesterday_prices[idx_v]):
             continue
 
-        K_today = today_prices[idx_u] / today_prices[idx_v]
-        K_yesterday = yesterday_prices[idx_u] / yesterday_prices[idx_v]
+        # Compute K via USD as pivot
+        K_today = (today_prices[idx_u] / today_prices[usd_idx]) / \
+                  (today_prices[idx_v] / today_prices[usd_idx])
+        K_yesterday = (yesterday_prices[idx_u] / yesterday_prices[usd_idx]) / \
+                      (yesterday_prices[idx_v] / yesterday_prices[usd_idx])
         dK = K_today - K_yesterday
 
         if dK == 0:
@@ -108,7 +111,6 @@ def draw_snapshot(G, rates, pos, filename, title="FX Flow Network"):
         start, end = (u, v) if dK < 0 else (v, u)
         weight = abs(dK)
 
-        # scale arrow thickness and size
         linewidth = max(2, 15 * weight)
         mutation_scale = 15 + 30 * weight
 
