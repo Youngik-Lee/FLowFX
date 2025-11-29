@@ -33,10 +33,13 @@ def predict_with_confidence(model, X):
 
 # --- Navier-Stokes calibration using multiple sources ---
 def calibrate_navier(last_flows, combined_target, G):
-    """Optimize NS parameters to fit combined target flows."""
+    """Optimize NS parameters to fit combined target flows using original calibrate function."""
+    # Build matrices using existing calibrate
+    _, _, _, A, L = calibrate(pd.DataFrame([last_flows], columns=CURRENCIES), G)
+
     def loss(params):
         nu, gamma, f = params
-        pred = simulate_step(last_flows, *build_navier_matrices(G), nu=nu, gamma=gamma, f=f*np.ones(len(last_flows)))
+        pred = simulate_step(last_flows, A, L, nu, gamma, f*np.ones(len(last_flows)))
         return np.sum((pred - combined_target)**2)
 
     # initial guess
@@ -44,7 +47,7 @@ def calibrate_navier(last_flows, combined_target, G):
     bounds = [(0, 1), (0, 1), (0, 2)]
     result = minimize(loss, init, bounds=bounds, method='L-BFGS-B')
     nu_opt, gamma_opt, f_opt = result.x
-    return nu_opt, gamma_opt, f_opt
+    return nu_opt, gamma_opt, f_opt, A, L
 
 if __name__ == "__main__":
     today = pd.Timestamp.today()
@@ -72,15 +75,15 @@ if __name__ == "__main__":
     slippage_pred = apply_slippage(ml_mean, volume=5_000_000)
 
     # --- combine predictions for NS calibration ---
-    # Option 1: weighted average of regression, ML, and alpha
+    # Weighted average: ML, regression, alpha
     reg_pred = lin_model.predict(rates.drop(columns=["USD"]))[-1]
     alpha_pred = alpha_df.iloc[-1].values
     combined_target = 0.5 * ml_mean + 0.3 * reg_pred.mean() + 0.2 * alpha_pred.mean()
 
     # --- Navier-Stokes simulation ---
     G = build_country_graph()
-    nu, gamma, f = calibrate_navier(flows.iloc[-1].values, combined_target*np.ones(len(CURRENCIES)), G)
-    pred = simulate_step(flows.iloc[-1].values, *build_navier_matrices(G), nu=nu, gamma=gamma, f=f*np.ones(len(CURRENCIES)))
+    nu, gamma, f, A, L = calibrate_navier(flows.iloc[-1].values, combined_target*np.ones(len(CURRENCIES)), G)
+    pred = simulate_step(flows.iloc[-1].values, A, L, nu, gamma, f*np.ones(len(CURRENCIES)))
 
     # --- build summary content ---
     summary_lines = []
