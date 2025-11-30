@@ -1,10 +1,11 @@
 # FLowFX: Network-Based Currency Flow Prediction
-
 FLowFX is a network dynamics project that models currency movements as flows, constructs a currency network, applies a **Navier–Stokes-inspired network dynamics** engine to predict 1-day flow changes, and visualizes the results.
 
 The core approach is to model the change in currency rates (relative to USD) as a fluid velocity vector **u**, subject to momentum transfer, diffusion, and external market forces.
 
+
 ## 🧠 Architecture
+
 The prediction system is a hybrid model where **Machine Learning (ML)** provides the external force input to the **Navier-Stokes (NS) primary engine**.
 
 **Data Flow**
@@ -29,6 +30,7 @@ Flow Visualization (network arrows)
       ↓
 Back testing
 ```
+
 * **FX Data (Yahoo Finance)** -> **Time Series Features/Stats**
 * **Time Series Features** feeds:
     * **Covariance Matrix**
@@ -44,7 +46,6 @@ Back testing
 The **Combined External Forcing** (f) is a **weighted average** of the auxiliary models, injected into the NS simulation:
 
 **f = 0.5 * ML_pred + 0.3 * Reg_pred + 0.2 * alpha_pred**
-
 
 
 ## ✨ Features
@@ -74,7 +75,6 @@ The network adjacency matrix is constructed based on the **currency correlation 
 * **nu * L @ u**: Diffusion/Viscosity (nu is viscosity, L is the Laplacian)
 * **gamma * u**: Friction/Damping (gamma is friction coefficient)
 * **f**: External Forcing (input from the hybrid ML/Alpha model)
-
 
 
 ## 📁 Repository Structure
