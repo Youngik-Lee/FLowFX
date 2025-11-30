@@ -1,0 +1,10 @@
+
+========================================
+        BACKTEST PERFORMANCE SUMMARY
+========================================
+Currency: AUD
+Directional Accuracy (%): 48.469388
+Total P&L (Unit Trade): -19769.847393
+Mean P&L per Trade: -100.866568
+Sharpe Ratio (Approx): -0.377789
+========================================
