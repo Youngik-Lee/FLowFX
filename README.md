@@ -154,6 +154,9 @@ python3 src/fx_flow_animation.py
 ```
 Result
 
+<img width="1185" height="1165" alt="fxflow_20251130_014859" src="https://github.com/user-attachments/assets/6a042338-c3e0-43c0-898d-6b6e1acb9f28" />
+
+
 ### 5. Backtest
 ```
 python3 src/backtest_fxmodel.py
