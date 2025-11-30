@@ -1,4 +1,5 @@
 # Ignore Python virtual environment
+src/tmp/
 venv/
 __pycache__/
 *.pyc

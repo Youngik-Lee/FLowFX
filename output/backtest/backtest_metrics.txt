@@ -1,8 +1,0 @@
-========================================
-        BACKTEST PERFORMANCE SUMMARY
-========================================
-Directional Accuracy (%): 56.801366
-Total P&L (Unit Trade): 36.172677
-Mean P&L per Trade: 0.020588
-Sharpe Ratio (Approx): 15.725669
-========================================
