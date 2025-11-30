@@ -1,0 +1,22 @@
+==== NAVIER SYSTEM PARAMETERS ====
+nu: 0.000000
+gamma: 0.157255
+f: 0.000000
+
+==== ML + Regression + Alpha (Non-USD Currencies) ====
+ML Predicted dK/dt: 0.0011184554928331638
+Regression contribution: [1.77827301e-03 2.44543155e-05 7.31673820e-07 2.25872484e-03
+ 7.84848438e-04 2.02053943e-05 5.82599374e-04]
+Alpha contribution: [1.00000000e+00 1.15648377e+00 6.40081940e-03 6.82631100e-04
+ 1.31587076e+00 7.68114030e-01 1.28611743e-01]
+After slippage: -0.09908154450716684
+
+==== CURRENCY PREDICTIONS ====
+USD: K_today=1.000000, dK/dt_pred=0.264995, reliability=0.999
+EUR: K_today=1.159985, dK/dt_pred=0.076317, reliability=0.999
+JPY: K_today=0.006399, dK/dt_pred=0.000784, reliability=0.999
+KRW: K_today=0.000684, dK/dt_pred=0.000316, reliability=0.999
+GBP: K_today=1.324118, dK/dt_pred=-0.314386, reliability=0.999
+SGD: K_today=0.771177, dK/dt_pred=0.192125, reliability=0.999
+HKD: K_today=0.128556, dK/dt_pred=0.032406, reliability=0.999
+AUD: K_today=0.653580, dK/dt_pred=-0.028028, reliability=0.999

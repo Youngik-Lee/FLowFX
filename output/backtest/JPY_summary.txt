@@ -1,0 +1,10 @@
+
+========================================
+        BACKTEST PERFORMANCE SUMMARY
+========================================
+Currency: JPY
+Directional Accuracy (%): 51.020408
+Total P&L (Unit Trade): -274.108723
+Mean P&L per Trade: -1.398514
+Sharpe Ratio (Approx): -0.509790
+========================================
