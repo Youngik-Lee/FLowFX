@@ -89,6 +89,7 @@ FLowFX/
 │    ├── fx_flow_model.py         # Main execution script
 │    ├── fx_flow_animation.py     # Animation script
 │    ├── fx_utils.py              # CORE: Contains build_country_graph, calibrate, simulate_step
+│    ├── backtest_fxmodel.py
 │    ├── alpha_model.py
 │    ├── covariance_model.py
 │    ├── regression_model.py
@@ -100,21 +101,22 @@ FLowFX/
 │── output/
 │    ├── animation
 │    ├── model
+│    ├── backtest
 ```
 
 ## 📦 Installation & Run
-1. Clone the repo:
+### 1. Clone the repo:
 ```bash
 git clone https://github.com/Youngik-Lee/FLowFX.git
 cd FLowFX
 ```
 
-2. Installation
+### 2. Installation
 ```
 pip install -r requirements.txt
 ```
 
-3. Run Model (Prediction)
+### 3. Run Model (Prediction)
 ```
 python3 src/fx_flow_model.py
 ```
@@ -144,13 +146,13 @@ HKD: K_today=0.128556, dK/dt_pred=-0.209557, reliability=0.999
 AUD: K_today=0.653580, dK/dt_pred=-0.378690, reliability=0.999
 ```
 
-4. Run Animation
+### 4. Run Animation
 ```
 python3 src/fx_flow_animation.py
 ```
 Result
 
-5. Backtest
+### 5. Backtest
 ```
 python3 src/backtest_fxmodel.py
 ```
