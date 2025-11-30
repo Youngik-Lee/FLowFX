@@ -6,7 +6,6 @@ from fx_flow_model import (
     apply_slippage, calibrate_navier, CURRENCIES, add_timeseries_features,
     compute_alpha_signals, build_country_graph, simulate_step, fetch_rates_yahoo
 )
-
 # -----------------------------
 # Fetch historical FX rates
 # -----------------------------
@@ -91,7 +90,8 @@ mean_pnl_per_trade = results_df.groupby("currency")["pnl"].mean()
 sharpe_ratio = results_df.groupby("currency")["pnl"].apply(lambda x: x.mean() / x.std() * np.sqrt(252))
 
 # Save full backtest results CSV
-results_df.to_csv(os.path.join(output_dir, "backtest_results.csv"), index=False)
+timestamp = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+results_df.to_csv(os.path.join(output_dir, f"backtest_results_{timestamp}.csv"), index=False)
 
 print("==== Backtest Summary ====")
 print("\nDirectional Accuracy (%):")
@@ -121,6 +121,7 @@ summary_lines.append("==== CURRENCY PREDICTIONS ====")
 reliability = max(0, 1 - ml_std.mean())
 for cur, K_today, dK in zip(CURRENCIES, last_row.values, dK_pred):
     summary_lines.append(f"{cur}: K_today={K_today:.6f}, dK/dt_pred={dK:.6f}, reliability={reliability:.3f}")
+
 # Create timestamp string
 timestamp = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
 
