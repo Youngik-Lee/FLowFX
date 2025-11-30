@@ -6,6 +6,8 @@ The core approach is to model the change in currency rates (relative to USD) as 
 
 ## 🧠 Architecture
 The prediction system is a hybrid model where **Machine Learning (ML)** provides the external force input to the **Navier-Stokes (NS) primary engine**.
+
+**Data Flow**
 ```
 FX Data (Yahoo)
       ↓
@@ -27,8 +29,6 @@ Flow Visualization (network arrows)
       ↓
 Back testing
 ```
-
-**Data Flow**
 * **FX Data (Yahoo Finance)** -> **Time Series Features/Stats**
 * **Time Series Features** feeds:
     * **Covariance Matrix**
