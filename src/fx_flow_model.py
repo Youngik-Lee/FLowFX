@@ -27,9 +27,14 @@ def ensure_output_dir():
 
 def save_summary_file(content: str):
     ensure_output_dir()
-    path = os.path.join(OUTPUT_DIR, "summary.txt")
+    # Create timestamp for filename
+    timestamp = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"summary_{timestamp}.txt"
+    path = os.path.join(OUTPUT_DIR, filename)
+
     with open(path, "w", encoding="utf-8") as f:
         f.write(content)
+
     print(f"[Saved] {path}")
 
 def predict_with_confidence(model, X):
