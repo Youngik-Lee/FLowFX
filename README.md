@@ -158,6 +158,15 @@ python3 src/backtest_fxmodel.py
 ```
 Result
 ```
+========================================
+        BACKTEST PERFORMANCE SUMMARY
+========================================
+Currency: EUR
+Directional Accuracy (%): 50.000000
+Total P&L (Unit Trade): 113850.712776
+Mean P&L per Trade: 580.870984
+Sharpe Ratio (Approx): 1.564125
+========================================
 ```
 
 6. Run all process
