@@ -4,12 +4,8 @@ FLowFX is a network dynamics project that models currency movements as flows, co
 
 The core approach is to model the change in currency rates (relative to USD) as a fluid velocity vector **u**, subject to momentum transfer, diffusion, and external market forces.
 
-
-
 ## 🧠 Architecture
-
 The prediction system is a hybrid model where **Machine Learning (ML)** provides the external force input to the **Navier-Stokes (NS) primary engine**.
-
 ```
 FX Data (Yahoo)
       ↓
@@ -154,8 +150,7 @@ python3 src/fx_flow_animation.py
 ```
 Result
 
-<img width="1185" height="1165" alt="fxflow_20251130_014859" src="https://github.com/user-attachments/assets/6a042338-c3e0-43c0-898d-6b6e1acb9f28" />
-
+<img width="1192" height="1216" alt="fxflow_20251130_014859" src="https://github.com/user-attachments/assets/23956546-a56a-44b0-882d-ab7fceb379be" />
 
 ### 5. Backtest
 ```
