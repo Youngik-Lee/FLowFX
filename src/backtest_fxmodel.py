@@ -121,19 +121,23 @@ summary_lines.append("==== CURRENCY PREDICTIONS ====")
 reliability = max(0, 1 - ml_std.mean())
 for cur, K_today, dK in zip(CURRENCIES, last_row.values, dK_pred):
     summary_lines.append(f"{cur}: K_today={K_today:.6f}, dK/dt_pred={dK:.6f}, reliability={reliability:.3f}")
+# Create timestamp string
+timestamp = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
 
-summary_path = os.path.join(output_dir, "summary.txt")
+# -----------------------------
+# Save final day summary (like summary.txt) with timestamp
+# -----------------------------
+summary_filename = f"summary_{timestamp}.txt"
+summary_path = os.path.join(output_dir, summary_filename)
 with open(summary_path, "w", encoding="utf-8") as f:
     f.write("\n".join(summary_lines))
 
 print(f"\n[Saved final summary] {summary_path}")
 
 # ============================================================
-# Save individual currency summaries
+# Save individual currency summaries with timestamp
 # ============================================================
-
 for cur in CURRENCIES:
-
     cur_dir_acc = directional_accuracy.get(cur, np.nan)
     cur_total_pnl = total_pnl.get(cur, np.nan)
     cur_mean_pnl = mean_pnl_per_trade.get(cur, np.nan)
@@ -150,7 +154,7 @@ Mean P&L per Trade: {cur_mean_pnl:.6f}
 Sharpe Ratio (Approx): {cur_sharpe:.6f}
 ========================================
 """
-
-    file_path = os.path.join(output_dir, f"{cur}_summary.txt")
+    # Add timestamp to filename
+    file_path = os.path.join(output_dir, f"{cur}_summary_{timestamp}.txt")
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(summary_text)
