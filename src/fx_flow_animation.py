@@ -1,4 +1,3 @@
-
 import os
 import yfinance as yf
 import matplotlib.pyplot as plt
@@ -13,7 +12,6 @@ from matplotlib.patches import FancyArrowPatch
 # -----------------------------
 
 CURRENCIES = ["USD", "EUR", "JPY", "KRW", "GBP", "SGD", "HKD", "AUD"]
-
 # Yahoo Finance Tickers for USD-based pairs
 TICKERS = {
     "EUR": "EURUSD=X", 
@@ -31,7 +29,6 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 # -----------------------------
 # FETCH FX DATA
 # -----------------------------
-
 def fetch_rates_yfinance(base="USD", currencies=CURRENCIES, days=7):
     start_date = (datetime.utcnow().date() - timedelta(days=days)).isoformat()
     end_date = datetime.utcnow().date().isoformat()
