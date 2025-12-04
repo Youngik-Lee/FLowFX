@@ -169,7 +169,7 @@ Sharpe Ratio (Approx): 1.564125
 ========================================
 ```
 
-6. Run all process
+### 6. Run all process
 ```
 chmod +x run_all.sh
 ./run_all.sh
