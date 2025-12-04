@@ -7,12 +7,12 @@ WORKDIR /app
 # 3️⃣ Copy requirements first and install dependencies (enables Docker caching)
 COPY requirements.txt /app/
 
-# 4️⃣ Upgrade pip and install only your project modules
+# 4️⃣ Upgrade pip and install only project modules
 RUN pip install --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-# 5️⃣ Copy your project source code
+# 5️⃣ Copy project source code
 COPY src /app/src
 
-# 6️⃣ Default command to run your script
+# 6️⃣ Default command to run script
 CMD ["python", "src/fx_flow_model.py"]
