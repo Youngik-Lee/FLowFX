@@ -131,13 +131,8 @@ def draw_snapshot(G, rates, filename):
     for u, v, width in arrow_edges:
         x1, y1 = pos[u]
         x2, y2 = pos[v]
-
-        # Midpoint
-        xm = (x1 + x2) / 2
-        ym = (y1 + y2) / 2
-
         arrow = FancyArrowPatch(
-            (x1, y1), (0.95*x2, 0.95*y2),            # end at midpoint
+            (x1, y1), (0.95*x2, 0.95*y2),          
             arrowstyle="-|>",
             color="darkred",
             linewidth=width,
