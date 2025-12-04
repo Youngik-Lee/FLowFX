@@ -10,7 +10,6 @@ from matplotlib.patches import FancyArrowPatch
 # -----------------------------
 # SETTINGS
 # -----------------------------
-
 CURRENCIES = ["USD", "EUR", "JPY", "KRW", "GBP", "SGD", "HKD", "AUD"]
 # Yahoo Finance Tickers for USD-based pairs
 TICKERS = {
