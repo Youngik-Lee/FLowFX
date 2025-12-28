@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 
-def compute_alpha_dK(df, window=20):
+def compute_alpha_signals(df, window=20):
     df = df.copy()
     # 1️⃣ returns
     ret = df.pct_change()
