@@ -13,7 +13,7 @@ def compute_alpha_dK(df, window=20):
     trend_strength = momentum / (vol + 1e-9)
     # 5️⃣ direction only
     direction = np.sign(trend_strength)
-    # 6️⃣ convert to dK scale
+    # 6️⃣ convert to dK scale (dK in model.py)
     dK_scale = df.diff().rolling(window).std()
     dK_alpha = direction * dK_scale
     return dK_alpha
