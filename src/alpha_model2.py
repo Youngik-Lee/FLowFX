@@ -1,3 +1,6 @@
+import pandas for pd
+import numpy for np
+
 def compute_alpha_dK(df, window=20):
     """
     Returns alpha-based dK estimate (same unit as dK)
