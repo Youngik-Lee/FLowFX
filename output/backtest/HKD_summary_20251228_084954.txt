@@ -1,0 +1,10 @@
+
+========================================
+        BACKTEST PERFORMANCE SUMMARY
+========================================
+Currency: HKD
+Directional Accuracy (%): 42.564103
+Total P&L (Unit Trade): -34.734607
+Mean P&L per Trade: -0.178126
+Sharpe Ratio (Approx): -0.039912
+========================================
