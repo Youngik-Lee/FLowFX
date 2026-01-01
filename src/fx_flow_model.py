@@ -142,7 +142,7 @@ if __name__ == "__main__":
     
     # combined_target is size 7 (non-USD currencies)
     combined_target = 0.5*ml_mean + 0.3*reg_pred + 0.2*alpha_pred_non_usd
-    combined_target = apply_slippage(combined_target, volume=5_000_000)
+    # combined_target = apply_slippage(combined_target, volume=5_000_000)
 
     # --- NS simulation ---
     # Need to pad combined_target back to 8 currencies for NS
