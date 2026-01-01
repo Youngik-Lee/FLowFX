@@ -55,11 +55,12 @@ for t in range(window, len(K_matrix)-1):
     combined_target = 0.5*ml_mean+0.3*reg_pred+0.2*alpha_pred_non_usd
     combined_target = apply_slippage(combined_target, volume=trade_volume)
     combined_target_full = np.insert(combined_target, CURRENCIES.index("USD"), 0)
-    
+    combined_target_full -= combined_target_full.mean()
     # --- Navier-Stokes simulation ---
     G = build_country_graph()
     nu, gamma, f, A, L = calibrate_navier(K_last.values, combined_target_full, G)
-    dK_pred = simulate_step(K_last.values, A, L, nu, gamma, f*np.ones(len(CURRENCIES)))
+    # dK_pred = simulate_step(K_last.values, A, L, nu, gamma, f*np.ones(len(CURRENCIES))) // when there is a macro signals (eg. news) 
+    dK_pred = simulate_step(K_last.values, A, L, nu, gamma, f*np.zeros(len(CURRENCIES)))
 
     # --- collect results ---
     for i, cur in enumerate(CURRENCIES):
