@@ -1,0 +1,10 @@
+
+========================================
+        BACKTEST PERFORMANCE SUMMARY
+========================================
+Currency: KRW
+Directional Accuracy (%): 43.654822
+Total P&L (Unit Trade): -7.330865
+Mean P&L per Trade: -0.037213
+Sharpe Ratio (Approx): -0.130364
+========================================

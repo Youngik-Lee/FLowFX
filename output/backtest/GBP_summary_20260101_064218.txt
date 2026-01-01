@@ -1,0 +1,10 @@
+
+========================================
+        BACKTEST PERFORMANCE SUMMARY
+========================================
+Currency: GBP
+Directional Accuracy (%): 47.208122
+Total P&L (Unit Trade): -59674.332868
+Mean P&L per Trade: -302.915395
+Sharpe Ratio (Approx): -0.806481
+========================================

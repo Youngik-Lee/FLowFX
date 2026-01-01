@@ -1,0 +1,10 @@
+
+========================================
+        BACKTEST PERFORMANCE SUMMARY
+========================================
+Currency: SGD
+Directional Accuracy (%): 53.299492
+Total P&L (Unit Trade): 32303.382625
+Mean P&L per Trade: 163.976562
+Sharpe Ratio (Approx): 1.164612
+========================================

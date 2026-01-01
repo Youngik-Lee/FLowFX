@@ -1,0 +1,10 @@
+
+========================================
+        BACKTEST PERFORMANCE SUMMARY
+========================================
+Currency: EUR
+Directional Accuracy (%): 50.761421
+Total P&L (Unit Trade): 100724.150409
+Mean P&L per Trade: 511.290104
+Sharpe Ratio (Approx): 1.462273
+========================================

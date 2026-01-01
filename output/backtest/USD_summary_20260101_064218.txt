@@ -1,0 +1,10 @@
+
+========================================
+        BACKTEST PERFORMANCE SUMMARY
+========================================
+Currency: USD
+Directional Accuracy (%): 0.000000
+Total P&L (Unit Trade): -19.739400
+Mean P&L per Trade: -0.100200
+Sharpe Ratio (Approx): -inf
+========================================
