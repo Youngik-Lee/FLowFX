@@ -51,11 +51,11 @@ for t in range(window, len(K_matrix)-1):
     reg_pred = lin_model.predict(X_last_row.values)[0]
     rates_ts = add_timeseries_features(K_window)
     alpha_pred_non_usd = compute_alpha_signals(rates_ts).iloc[-1].values[:7]
-
-    combined_target = 0.5*ml_mean+0.3*reg_pred+0.2*alpha_pred_non_usd
-    combined_target = apply_slippage(combined_target, volume=trade_volume)
+    combined_target = 0.5*ml_mean + 0.3*reg_pred + 0.2*alpha_pred_non_usd
+    # combined_target = apply_slippage(combined_target, volume=trade_volume)
     combined_target_full = np.insert(combined_target, CURRENCIES.index("USD"), 0)
     combined_target_full -= combined_target_full.mean()
+   
     # --- Navier-Stokes simulation ---
     G = build_country_graph()
     nu, gamma, f, A, L = calibrate_navier(K_last.values, combined_target_full, G)
@@ -68,6 +68,7 @@ for t in range(window, len(K_matrix)-1):
         pred = dK_pred[i]
         direction = np.sign(pred)
         pnl = direction * actual * trade_volume
+        pnl = apply_slippage(pnl, volume=trade_volume)
 
         results.append({
             "date": K_matrix.index[t],
