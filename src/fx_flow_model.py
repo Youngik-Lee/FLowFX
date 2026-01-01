@@ -147,6 +147,7 @@ if __name__ == "__main__":
     # --- NS simulation ---
     # Need to pad combined_target back to 8 currencies for NS
     combined_target_full = np.insert(combined_target, CURRENCIES.index("USD"), 0)
+    combined_target_full -= combined_target_full.mean()
     K_last_full = K_matrix.iloc[-1].values 
     
     G = build_country_graph()
